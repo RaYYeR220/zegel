@@ -1,0 +1,17 @@
+name = "zegel-gateway"
+main = "src/worker.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Everything below is public: it ends up in the deployed script and, for the URLs,
+# in the resolver's on-chain `gatewayUrls()`. The signing key is not here — set it
+# with `wrangler secret put ZEGEL_SIGNER_KEY`.
+[vars]
+ZEGEL_CHAIN_ID = "1"
+ZEGEL_SIGNATURE_TTL = "60"
+ZEGEL_CACHE_TTL = "30"
+# ZEGEL_RESOLVERS = "0x…"
+# ZEGEL_RPC_URL = "https://…"
+# There is no filesystem on Workers, so the store is seeded from a JSON array of
+# { node, name, envelope } and is otherwise in-memory. /health reports it as lossy.
+# ZEGEL_ENVELOPES = "[]"

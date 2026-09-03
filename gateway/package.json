@@ -1,0 +1,29 @@
+{
+  "name": "@zegel/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CCIP-Read gateway for ZegelResolver. Serves the public sealed envelope and nothing else.",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "start": "node src/index.ts",
+    "dev": "node --watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "publish-envelope": "node scripts/publish.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.13.5",
+    "viem": "2.56.3"
+  },
+  "devDependencies": {
+    "@noble/hashes": "^1.8.0",
+    "@types/node": "^24",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.8"
+  }
+}
