@@ -1,0 +1,11 @@
+node_modules/
+*.tsbuildinfo
+
+# Working directory for issued references: envelopes, claim sets, and the seal
+# receipt log. The receipts carry ACT history addresses, which are irrecoverable
+# if lost and meaningless to anyone else — local state, never committed.
+.zegel/
+
+# Written by the isolated `pnpm install --ignore-workspace` this package uses
+# while the workspace root has no lockfile; the root lockfile supersedes it.
+pnpm-lock.yaml

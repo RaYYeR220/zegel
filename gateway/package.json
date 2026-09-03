@@ -21,6 +21,7 @@
     "viem": "2.56.3"
   },
   "devDependencies": {
+    "@ethersphere/bee-js": "13.0.0",
     "@noble/hashes": "^1.8.0",
     "@types/node": "^24",
     "typescript": "^5.7.0",

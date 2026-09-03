@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@zegel/evidence": ["../packages/evidence/src/index.ts"],
+      "@zegel/seal": ["../packages/seal/src/index.ts"],
+      "@zegel/sdk": ["../packages/sdk/src/index.ts"],
+      "@zegel/sdk/types": ["../packages/sdk/src/types.ts"],
+      "@zegel/sdk/canonical": ["../packages/sdk/src/canonical.ts"],
+      "@zegel/sdk/*": ["../packages/sdk/src/*"]
+    }
+  },
+  "include": ["src", "test", "vitest.config.ts", "bin"]
+}
