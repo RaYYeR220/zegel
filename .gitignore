@@ -21,7 +21,7 @@ keypair*.json
 
 # foundry
 broadcast/
-lib/forge-std/
+# forge-std is vendored under contracts/lib so the test suite runs without a submodule fetch
 
 # logs
 *.log
