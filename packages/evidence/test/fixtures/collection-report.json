@@ -1,0 +1,167 @@
+[
+  {
+    "endpoint": "GET /2/wallet/positions-history",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/positions",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/trades",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/positions-history",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/positions",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/labels",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/trades",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/market/lighthouse",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/funding",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/defi-positions",
+    "status": "unavailable",
+    "httpStatus": 500
+  },
+  {
+    "endpoint": "GET /2/wallet/analysis",
+    "status": "unavailable",
+    "httpStatus": 500
+  },
+  {
+    "endpoint": "GET /1/wallet/history",
+    "status": "unavailable",
+    "httpStatus": null
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/positions",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/trades",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/positions-history",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/labels",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/funding",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/market/lighthouse",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/analysis",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /1/wallet/history",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/wallet/defi-positions",
+    "status": "unavailable",
+    "httpStatus": 429
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "ok",
+    "httpStatus": 200
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "unavailable",
+    "httpStatus": 429
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "unavailable",
+    "httpStatus": 429
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "unavailable",
+    "httpStatus": 429
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "unavailable",
+    "httpStatus": 429
+  },
+  {
+    "endpoint": "GET /2/token/security",
+    "status": "ok",
+    "httpStatus": 200
+  }
+]
