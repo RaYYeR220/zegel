@@ -1,0 +1,6 @@
+node_modules/
+*.tsbuildinfo
+
+# Written by the isolated `pnpm install --ignore-workspace` used while the
+# workspace root has no lockfile yet; the root lockfile supersedes it.
+pnpm-lock.yaml
