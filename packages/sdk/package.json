@@ -1,0 +1,25 @@
+{
+  "name": "@zegel/sdk",
+  "version": "0.1.0",
+  "description": "Resolve, open and verify Zegel references from an ENS name.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./canonical": "./src/canonical.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.7.1",
+    "viem": "2.56.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
