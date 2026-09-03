@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnp.*
+
+# build output
+dist/
+build/
+out/
+cache/
+.next/
+*.tsbuildinfo
+
+# environment & secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+keypair*.json
+*_keypair.json
+
+# foundry
+broadcast/
+lib/forge-std/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editors & os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# local scratch
+scratch/
+notes/
+tmp/
