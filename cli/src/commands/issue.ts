@@ -254,26 +254,53 @@ async function sealTiers(
 
   if (!out.json) out.lines(section(theme, 'sealing'));
 
-  let client: Awaited<ReturnType<typeof seal.createSealClient>>;
-  try {
-    client = await seal.createSealClient({
-      kind: 'auto',
+  const connect = async (
+    kind: 'auto' | 'gateway',
+  ): Promise<Awaited<ReturnType<typeof seal.createSealClient>>> =>
+    seal.createSealClient({
+      kind,
       keep: seal.fileKeeper(receiptsPath),
       onWarning: (message) => out.warn(message),
     });
-  } catch (cause) {
-    if (!out.json) {
-      out.line(`  ${theme.bad(theme.glyphs.fail)} no Swarm backend answered`);
-      out.line(`  ${theme.dim(cause instanceof Error ? cause.message : String(cause))}`);
-      out.line(`  ${theme.dim('The claims above are still derived and the commitment above is still real.')}`);
-      out.line(`  ${theme.dim('Nothing was sealed, so nothing can be granted. Run `zegel doctor`.')}`);
+
+  let client: Awaited<ReturnType<typeof seal.createSealClient>>;
+  try {
+    client = await connect('auto');
+  } catch (nodeFailure) {
+    // A local node with an exhausted postage batch is the common case here, and
+    // it is not a reason to seal nothing: the public gateway needs no postage at
+    // all. The fallback is taken loudly, because it drops confidentiality from
+    // key-bound to obscurity and a silent downgrade would be the worst kind of lie.
+    const detail = nodeFailure instanceof Error ? nodeFailure.message : String(nodeFailure);
+    out.warn(`the local Bee node cannot seal (${detail}); falling back to the public Swarm gateway`);
+
+    try {
+      client = await connect('gateway');
+      if (!out.json) {
+        out.line(`  ${theme.warn(theme.glyphs.warn)} the local Bee node was skipped: ${theme.dim(detail)}`);
+        out.line(
+          `  ${theme.dim('Sealing continues on the public gateway, where confidentiality is obscurity')}`,
+        );
+        out.line(`  ${theme.dim('rather than key-bound. That downgrade is the reason this line exists.')}`);
+        out.line();
+      }
+    } catch (gatewayFailure) {
+      if (!out.json) {
+        out.line(`  ${theme.bad(theme.glyphs.fail)} no Swarm backend answered`);
+        out.line(`  ${theme.dim(`node: ${detail}`)}`);
+        out.line(
+          `  ${theme.dim(`gateway: ${gatewayFailure instanceof Error ? gatewayFailure.message : String(gatewayFailure)}`)}`,
+        );
+        out.line(`  ${theme.dim('The claims above are still derived and the commitment above is still real.')}`);
+        out.line(`  ${theme.dim('Nothing was sealed, so nothing can be granted. Run `zegel doctor`.')}`);
+      }
+      return {
+        tiers: [],
+        failed: true,
+        unpublishable: 0,
+        json: { attempted: true, error: String(gatewayFailure), nodeError: detail, tiers: [] },
+      };
     }
-    return {
-      tiers: [],
-      failed: true,
-      unpublishable: 0,
-      json: { attempted: true, error: String(cause), tiers: [] },
-    };
   }
 
   const caps = client.caps;

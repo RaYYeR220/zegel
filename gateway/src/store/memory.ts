@@ -12,6 +12,7 @@ import type { EnvelopeRecord, EnvelopeStore, StoreProbe } from './types.ts';
  */
 export class MemoryEnvelopeStore implements EnvelopeStore {
   readonly kind = 'memory';
+  readonly writable = true;
   readonly description = 'in-process map; contents are lost on restart';
 
   readonly #records = new Map<string, EnvelopeRecord>();

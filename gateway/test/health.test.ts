@@ -11,6 +11,7 @@ import { makeConfig } from './helpers.ts';
 /** A store that is reachable enough to answer and broken enough to be useless. */
 class BrokenStore implements EnvelopeStore {
   readonly kind = 'file';
+  readonly writable = true;
   readonly description = 'JSON file at /nowhere/envelopes.json';
 
   async get(_node: Hex): Promise<EnvelopeRecord | undefined> {

@@ -3,16 +3,18 @@ import { serve } from '@hono/node-server';
 import { createGatewayApp } from './app.ts';
 import { DEFAULT_STORE_PATH, loadConfig } from './config.ts';
 import { buildHealthReport } from './health.ts';
+import { createStatelessStore } from './store/factory.ts';
 import { FileEnvelopeStore } from './store/file.ts';
-import { MemoryEnvelopeStore } from './store/memory.ts';
 import type { EnvelopeStore } from './store/types.ts';
 
 const env = process.env;
 
+// A long-running Node process has a disk, so `file` stays the default here. Every
+// other backend comes from the shared factory, which the serverless entries use too.
 const store: EnvelopeStore =
-  env['ZEGEL_STORE'] === 'memory'
-    ? new MemoryEnvelopeStore()
-    : new FileEnvelopeStore(env['ZEGEL_STORE_PATH'] ?? DEFAULT_STORE_PATH);
+  (env['ZEGEL_STORE'] ?? 'file') === 'file'
+    ? new FileEnvelopeStore(env['ZEGEL_STORE_PATH'] ?? DEFAULT_STORE_PATH)
+    : createStatelessStore(env);
 
 const config = loadConfig({ env, store });
 const app = createGatewayApp(config);

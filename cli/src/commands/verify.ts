@@ -12,8 +12,16 @@ import { canonicalDigest } from '@zegel/sdk/canonical';
 import { ENVELOPE_SCHEMA, type ClaimSet, type SealedEnvelope } from '@zegel/sdk/types';
 
 import { CliError, type Output } from '../core/output.js';
-import { assessReference, EXIT_FAILURE, type AnchorOutcome, type Assessment } from '../core/status.js';
-import { DEFAULT_BASE_RPC, DEFAULT_ETH_RPC } from '../core/probes.js';
+import { assessReference, EXIT_FAILURE, type Assessment } from '../core/status.js';
+import { DEFAULT_ETH_RPC } from '../core/probes.js';
+import {
+  DEFAULT_BASE_RPC,
+  ZEGEL_ANCHOR_ADDRESS,
+  anchorAddressFromEnv,
+  anchorNote,
+  readAnchor,
+  type AnchorReading,
+} from '../core/anchor.js';
 import { renderAssessment, renderEnvelope } from '../render/envelope.js';
 import { renderClaimSummary, renderClaims } from '../render/claims.js';
 import { banner, field, section } from '../render/layout.js';
@@ -22,9 +30,11 @@ import { looksLikeName } from '../core/subject.js';
 export interface VerifyOptions {
   /** Tier-1 claim set to recompute the commitment from. */
   claims?: string | undefined;
-  /** ZegelAnchor address; without it, revocation cannot be ruled out. */
+  /** ZegelAnchor address. Defaults to the deployed contract on Base mainnet. */
   anchor?: string | undefined;
   anchorRpc?: string | undefined;
+  /** Do not touch the chain at all. The verdict then says revocation was not ruled out. */
+  skipAnchor?: boolean | undefined;
   /** Mainnet RPC used when the target is an ENS name. */
   rpc?: string | undefined;
   /** Attempt to open a sealed tier, which is what produces a real `not-granted`. */
@@ -65,11 +75,18 @@ export async function verify(out: Output, target: string, options: VerifyOptions
         })();
 
   // --- on-chain anchor -----------------------------------------------------
-  let anchor: AnchorOutcome | null = null;
-  const anchorAddress = options.anchor ?? (envelope.revocationHint.contract || undefined);
-  if (anchorAddress !== undefined && anchorAddress !== '') {
-    anchor = await readAnchor(out, anchorAddress, envelope, claimSet, options);
-  }
+  // Consulted by default: reading it needs no key and no funded account, and a
+  // verification that skipped it could not tell a live reference from a revoked
+  // one. An address in the envelope wins over the default, and an explicit
+  // --anchor wins over both.
+  const anchorAddress =
+    options.skipAnchor === true
+      ? undefined
+      : (options.anchor ?? (envelope.revocationHint.contract || anchorAddressFromEnv()));
+  const reading =
+    anchorAddress === undefined || anchorAddress === ''
+      ? null
+      : await consultAnchor(out, anchorAddress, envelope, claimSet, options);
 
   // --- sealed tier ---------------------------------------------------------
   let tierRead: 'granted' | 'not-granted' | 'not-attempted' = 'not-attempted';
@@ -77,11 +94,13 @@ export async function verify(out: Output, target: string, options: VerifyOptions
     tierRead = await openTier(out, envelope, options.open);
   }
 
+  const note = reading === null ? undefined : anchorNote(reading);
   const assessment = assessReference({
     envelope,
     now: new Date(),
-    anchor,
+    anchor: reading?.status ?? null,
     ...(anchorAddress === undefined ? {} : { anchorAddress }),
+    ...(note === undefined ? {} : { anchorNote: note }),
     commitment,
     tierRead,
   });
@@ -92,7 +111,7 @@ export async function verify(out: Output, target: string, options: VerifyOptions
     out.lines(renderClaimSummary(theme, claimSet.claims));
   }
 
-  return finish(out, assessment, envelope, claimSet, loaded.origin);
+  return finish(out, assessment, envelope, claimSet, loaded.origin, reading);
 }
 
 function finish(
@@ -101,6 +120,7 @@ function finish(
   envelope: SealedEnvelope | null,
   claimSet: ClaimSet | null,
   origin: string,
+  anchor: AnchorReading | null = null,
 ): number {
   if (out.json) {
     out.emit({
@@ -111,6 +131,7 @@ function finish(
       reasons: assessment.reasons,
       checks: assessment.checks,
       anchorChecked: assessment.anchorChecked,
+      anchor,
       exitCode: assessment.exitCode,
       envelope,
       claimSet,
@@ -126,6 +147,11 @@ function finish(
 }
 
 // ---------------------------------------------------------------------------
+
+/** RPC errors arrive as multi-line essays; a warning line wants the first sentence. */
+function firstLine(message: string): string {
+  return message.split(/\r?\n/)[0] ?? message;
+}
 
 interface LoadedEnvelope {
   envelope: SealedEnvelope | null;
@@ -282,43 +308,36 @@ async function loadClaims(
   }
 }
 
-async function readAnchor(
+/**
+ * Asks the anchor contract about this reference.
+ *
+ * Returns `null` — meaning "not checked" — only when the chain could not be
+ * reached, and says so out loud when that happens. An unreachable RPC and a
+ * contract that answered "revoked" are different facts, and a verifier that
+ * blurred them would be worse than one that never looked.
+ */
+async function consultAnchor(
   out: Output,
   anchorAddress: string,
   envelope: SealedEnvelope,
   claimSet: ClaimSet | null,
   options: VerifyOptions,
-): Promise<AnchorOutcome | null> {
-  const rpcUrl = options.anchorRpc;
-  const { createPublicClient, fallback, http } = await import('viem');
-  const { base } = await import('viem/chains');
-  const { BASE_RPCS } = await import('../core/probes.js');
-  const sdk = await import('@zegel/sdk');
-
-  const transportOptions = { timeout: 12_000, retryCount: 1 } as const;
-  const client = createPublicClient({
-    chain: base,
-    transport:
-      rpcUrl === undefined
-        ? fallback(BASE_RPCS.map((url) => http(url, transportOptions)))
-        : http(rpcUrl, transportOptions),
-  });
-  // Verify against what the claim set actually hashes to, when we hold it: asking
-  // the chain about the envelope's own commitment would let a doctored envelope
-  // vouch for its own doctored claims.
+): Promise<AnchorReading | null> {
+  // Ask about what the claim set actually hashes to, when we hold it: asking the
+  // chain about the envelope's own commitment would let a doctored envelope vouch
+  // for its own doctored claims.
   const commitment = claimSet === null ? envelope.commitment : canonicalDigest(claimSet);
 
   try {
-    const status = await client.readContract({
-      address: anchorAddress as `0x${string}`,
-      abi: sdk.ZEGEL_ANCHOR_ABI,
-      functionName: 'verify',
-      args: [envelope.referenceId as `0x${string}`, commitment as `0x${string}`],
+    return await readAnchor(envelope.referenceId, commitment, {
+      ...(options.anchorRpc === undefined ? {} : { rpcUrl: options.anchorRpc }),
+      address: anchorAddress,
     });
-    return sdk.ANCHOR_STATUS[Number(status)] ?? 'never-anchored';
   } catch (cause) {
+    const where = options.anchorRpc ?? DEFAULT_BASE_RPC;
+    const detail = cause instanceof Error ? firstLine(cause.message) : String(cause);
     out.warn(
-      `the anchor at ${anchorAddress} on ${rpcUrl ?? DEFAULT_BASE_RPC} could not be read (${cause instanceof Error ? cause.message : String(cause)}); revocation was not checked`,
+      `the anchor at ${anchorAddress} could not be read over ${where} (${detail}); revocation was NOT checked`,
     );
     return null;
   }

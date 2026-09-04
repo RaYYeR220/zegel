@@ -1,19 +1,26 @@
 {
-  "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@noble/hashes/*": [
-        "./node_modules/@noble/hashes/*"
-      ]
+      "@noble/hashes/*": ["./node_modules/@noble/hashes/*"]
     }
   },
   "include": [
+    "api/**/*.ts",
     "src/**/*.ts",
     "test/**/*.ts",
     "scripts/**/*.ts",

@@ -26,8 +26,19 @@ export interface Subject {
 
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
+/**
+ * Paths have dots too.
+ *
+ * `.zegel/envelope.json` contains a dot and is not an ENS name; treating it as
+ * one turns "that file does not exist" into "that name has no resolver", which
+ * sends the reader looking in entirely the wrong place.
+ */
+const FILE_LIKE = /[\/]|.(json|txt|ya?ml|jsonl)$/i;
+
 export function looksLikeName(input: string): boolean {
-  return input.includes('.') && !input.startsWith('0x');
+  const trimmed = input.trim();
+  if (trimmed.startsWith('0x') || FILE_LIKE.test(trimmed)) return false;
+  return /^[^s.]+(.[^s.]+)+$/.test(trimmed);
 }
 
 /**

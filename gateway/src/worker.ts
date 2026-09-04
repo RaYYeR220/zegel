@@ -3,8 +3,9 @@ import type { Hex } from 'viem';
 import { createGatewayApp } from './app.ts';
 import { loadConfig } from './config.ts';
 import { parseEnvelope } from './envelope.ts';
+import { createStatelessStore } from './store/factory.ts';
 import { MemoryEnvelopeStore } from './store/memory.ts';
-import type { EnvelopeRecord } from './store/types.ts';
+import type { EnvelopeRecord, EnvelopeStore } from './store/types.ts';
 
 type Env = Record<string, string | undefined>;
 
@@ -19,16 +20,18 @@ let cached: { env: Env; fetch: (request: Request) => Response | Promise<Response
 /**
  * Cloudflare Workers entry point.
  *
- * There is no filesystem here, so the store is in-memory and seeded from
- * `ZEGEL_ENVELOPES` — a JSON array of `{ node, name?, envelope }`. That is enough
- * for a name whose envelope changes rarely, and `/health` reports the backend as
- * lossy-on-restart so nobody mistakes it for durable storage. Anything longer-lived
- * wants KV or D1 behind the same `EnvelopeStore` interface.
+ * There is no filesystem here, so the default backend is the Swarm feed store, which
+ * keeps no state at all. `ZEGEL_ENVELOPES` — a JSON array of `{ node, name?, envelope }`
+ * — pins a fixed set into memory instead, which is enough for a demo and which
+ * `/health` reports as lossy-on-restart so nobody mistakes it for durable storage.
  */
 export default {
   fetch(request: Request, env: Env): Response | Promise<Response> {
     if (!cached || cached.env !== env) {
-      const store = new MemoryEnvelopeStore(seedRecords(env['ZEGEL_ENVELOPES']));
+      const seed = env['ZEGEL_ENVELOPES'];
+      const store: EnvelopeStore = seed
+        ? new MemoryEnvelopeStore(seedRecords(seed))
+        : createStatelessStore(env);
       const app = createGatewayApp(loadConfig({ env, store }));
       cached = { env, fetch: app.fetch };
     }

@@ -136,8 +136,9 @@ export function buildProgram(): Command {
     .argument('<name-or-envelope>', 'an ENS name, or a path to an envelope.json')
     .description('recompute the commitment and report valid / expired / revoked / tampered / not-granted')
     .option('--claims <file>', 'tier-1 claim set to recompute the commitment from')
-    .option('--anchor <address>', 'ZegelAnchor address; without it, revocation cannot be ruled out')
+    .option('--anchor <address>', 'ZegelAnchor address (default: the deployed contract on Base)')
     .option('--anchor-rpc <url>', 'RPC for the anchor chain (default Base mainnet)')
+    .option('--skip-anchor', 'do not read the chain; the verdict will say revocation was not ruled out')
     .option('--rpc <url>', 'mainnet RPC used when the target is an ENS name')
     .addOption(
       new Option('--open <tier>', 'try to open a sealed tier, to see whether you were granted')

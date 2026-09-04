@@ -35,6 +35,12 @@ export interface EnvelopeStore {
   readonly kind: string;
   /** What a health probe should say about this backend when it is working. */
   readonly description: string;
+  /**
+   * False for a backend that only reads, such as the Swarm feed store, where
+   * publishing happens by writing the feed rather than by calling this gateway. The
+   * admin route refuses up front rather than authenticating a request it cannot honour.
+   */
+  readonly writable: boolean;
 
   get(node: Hex): Promise<EnvelopeRecord | undefined>;
   put(record: EnvelopeRecord): Promise<void>;

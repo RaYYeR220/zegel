@@ -1,2 +1,6 @@
 .zegel/
+.vercel/
 .wrangler/
+
+.vercel
+api/index.js

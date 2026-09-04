@@ -37,6 +37,7 @@ interface PersistedFile {
  */
 export class FileEnvelopeStore implements EnvelopeStore {
   readonly kind = 'file';
+  readonly writable = true;
   readonly description: string;
 
   readonly #path: string;

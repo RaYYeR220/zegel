@@ -38,3 +38,5 @@ Thumbs.db
 scratch/
 notes/
 tmp/
+
+.vercel

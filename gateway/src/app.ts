@@ -118,6 +118,14 @@ export function createGatewayApp(config: GatewayConfig): Hono {
   });
 
   app.post('/admin/envelopes', async (c) => {
+    if (!config.store.writable) {
+      // Refuse before authenticating: a signature verified and then discarded would
+      // look like an authorisation failure to whoever sent it.
+      throw new GatewayError(
+        501,
+        `this gateway's store (${config.store.kind}) is read-only, so it cannot accept a publish: ${config.store.description}`,
+      );
+    }
     const body = await readJsonBody(c.req.raw);
     const record = await publishEnvelope(config, readPublishRequest(body));
     return c.json(

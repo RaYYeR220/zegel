@@ -37,7 +37,15 @@ describe('argument parsing', () => {
 
   it('tells an ENS name from an address without a network call', () => {
     expect(looksLikeName('vitalik.eth')).toBe(true);
+    expect(looksLikeName('alice.zegel.eth')).toBe(true);
     expect(looksLikeName('0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045')).toBe(false);
+  });
+
+  it('does not mistake a file path for a name, however many dots it has', () => {
+    expect(looksLikeName('.zegel/envelope.json')).toBe(false);
+    expect(looksLikeName('envelope.json')).toBe(false);
+    expect(looksLikeName('fixtures/anchored-reference.json')).toBe(false);
+    expect(looksLikeName('C:\refs\envelope.json')).toBe(false);
   });
 });
 
@@ -67,7 +75,7 @@ describe('the command surface', () => {
     const verify = program.commands.find((c) => c.name() === 'verify');
     const longs = verify?.options.map((o) => o.long) ?? [];
     expect(longs).toEqual(
-      expect.arrayContaining(['--claims', '--anchor', '--open', '--rpc']),
+      expect.arrayContaining(['--claims', '--anchor', '--anchor-rpc', '--skip-anchor', '--open', '--rpc']),
     );
   });
 

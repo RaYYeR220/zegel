@@ -50,9 +50,11 @@ export interface Check {
 export interface AssessInput {
   envelope: SealedEnvelope | null;
   now: Date;
-  /** `null` when no anchor contract was configured, so no chain read was attempted. */
+  /** `null` when no chain read was attempted, or when one was attempted and failed. */
   anchor?: AnchorOutcome | null | undefined;
   anchorAddress?: string | undefined;
+  /** Extra context the contract supplied — issuer, expiry, revocation time. */
+  anchorNote?: string | undefined;
   /** The result of recomputing the commitment from a claim set we actually hold. */
   commitment?:
     | { checked: true; matches: boolean; recomputed: string }
@@ -155,15 +157,19 @@ export function assessReference(input: AssessInput): Assessment {
     checks.push({
       name: 'on-chain anchor',
       outcome: 'skipped',
-      detail: 'no anchor contract configured, so revocation could not be ruled out',
+      detail:
+        input.anchorAddress === undefined
+          ? 'no anchor was consulted, so revocation could not be ruled out'
+          : `${input.anchorAddress} could not be read, so revocation could not be ruled out`,
     });
   } else {
     const anchor = input.anchor as AnchorOutcome;
     const where = input.anchorAddress === undefined ? '' : ` at ${input.anchorAddress}`;
+    const note = input.anchorNote === undefined ? '' : ` (${input.anchorNote})`;
     checks.push({
       name: 'on-chain anchor',
       outcome: anchor === 'valid' ? 'pass' : anchor === 'never-anchored' ? 'skipped' : 'fail',
-      detail: `${anchor}${where}`,
+      detail: `${anchor}${where}${note}`,
     });
   }
 
@@ -184,12 +190,21 @@ export function assessReference(input: AssessInput): Assessment {
   const commitmentMismatch = commitment?.checked === true && !commitment.matches;
 
   if (commitmentMismatch || input.anchor === 'commitment-mismatch') {
-    return verdict('tampered', 'These are not the claims that were sealed.', [
-      'The commitment does not match the claim set in front of you. Do not rely on it.',
+    return verdict(
+      'tampered',
+      'These are not the claims that were sealed.',
       commitmentMismatch
-        ? 'Recomputing the commitment from the supplied claim set produced a different hash.'
-        : 'The anchor contract reports a different commitment for this reference id.',
-    ]);
+        ? [
+            'Recomputing the commitment from the supplied claim set produced a different hash from the one the envelope carries. Do not rely on these claims.',
+            ...(input.anchor === 'commitment-mismatch'
+              ? ['The anchor contract independently reports a different commitment for this reference id.']
+              : []),
+          ]
+        : [
+            'The anchor contract holds a different commitment for this reference id than the one presented. Do not rely on these claims.',
+            'That answer came from the chain, not from this tool: anyone can repeat the call and get the same number.',
+          ],
+    );
   }
 
   if (input.anchor === 'revoked') {
@@ -226,9 +241,16 @@ export function assessReference(input: AssessInput): Assessment {
   }
 
   const reasons = ['Every check that was run passed.'];
+  if (input.anchor === 'valid') {
+    reasons.push(
+      'The anchor contract reports this reference as live: anchored, not expired, not revoked, and holding the commitment presented.',
+    );
+  }
   if (!anchorChecked) {
     reasons.push(
-      'No on-chain anchor was consulted, so revocation could not be ruled out. Pass --anchor <address> --rpc <url> to check it.',
+      input.anchorAddress === undefined
+        ? 'No on-chain anchor was consulted, so revocation could not be ruled out.'
+        : 'The anchor contract could not be read, so revocation could not be ruled out. This is a gap in the check, not a pass.',
     );
   } else if (input.anchor === 'never-anchored') {
     reasons.push(
@@ -237,7 +259,12 @@ export function assessReference(input: AssessInput): Assessment {
   }
   if (envelope.tiers.length === 0) {
     reasons.push(
-      'This envelope publishes no sealed tier, so there is nothing here for a grantee to open. What was checked is the binding between the claims and the commitment, and that binding holds.',
+      'This envelope publishes no sealed tier, so there is nothing here for a grantee to open.',
+    );
+  }
+  if (commitment === undefined || commitment.checked === false) {
+    reasons.push(
+      'No claim set was supplied, so nothing was checked about what the reference says — only about the reference itself. Pass --claims <file> to bind the two together.',
     );
   }
   return verdict('valid', 'Valid.', reasons);

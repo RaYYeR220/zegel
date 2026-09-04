@@ -1,0 +1,20 @@
+{
+  "_comment": "An on-chain test vector, not demo data. Nothing here is asserted: the referenceId and commitment address a reference really anchored on Base mainnet by ZegelAnchor 0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e in tx 0xe35a44bd37ee922d719728dcc24e1e046dc98663bf406b9bb722202188d243b6. `zegel verify` reads the contract live and reports whatever it says. Its sibling anchored-reference-tampered.json is identical but for one hex digit of the commitment, which is how the chain is made to answer 4 (CommitmentMismatch) on demand.",
+  "schema": "zegel.envelope.v1",
+  "referenceId": "0x644e1b8b170a18d7793dc3d266ecab544e3b9d9dca3619e7e8f2a678de4c30ce",
+  "commitment": "0xe2fb17f0870b418e2799338e1ef8781aff3b6a2d9ef318ec20a7e788dd86c574",
+  "issuedAt": "2026-09-03T23:36:29.000Z",
+  "expiresAt": "2026-12-02T23:36:25.000Z",
+  "tiers": [],
+  "anchors": {
+    "base": {
+      "chainId": 8453,
+      "contract": "0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e",
+      "txHash": "0xe35a44bd37ee922d719728dcc24e1e046dc98663bf406b9bb722202188d243b6"
+    }
+  },
+  "revocationHint": {
+    "contract": "0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e",
+    "chainId": 8453
+  }
+}

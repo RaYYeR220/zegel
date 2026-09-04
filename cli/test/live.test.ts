@@ -68,9 +68,18 @@ describe.skipIf(!reachable)('live dependencies', () => {
   it('reports the local Bee node honestly either way', () => {
     const bee = results.find((r) => r.id === 'bee-node');
     expect(['ok', 'degraded', 'unavailable']).toContain(bee?.status);
+    // Whatever is wrong — absent, no publisher key, no postage left — the row has
+    // to say what it costs, and every one of those costs lands on grant/revoke.
     if (bee?.status !== 'ok') {
-      expect(bee?.cost).toContain('grant and revoke');
+      expect(bee?.cost.length).toBeGreaterThan(0);
+      expect(bee?.cost.toLowerCase()).toMatch(/grant|publisher key/);
     }
+  });
+
+  it('answers from the ZegelAnchor contract on Base, not merely from an RPC socket', () => {
+    const anchor = results.find((r) => r.id === 'anchor-base');
+    expect(anchor?.status).toBe('ok');
+    expect(anchor?.detail).toContain('verify() returned 1 (valid)');
   });
 
   it('measures a latency for every probe it actually made', () => {

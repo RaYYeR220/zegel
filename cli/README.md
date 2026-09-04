@@ -17,6 +17,16 @@ zegel keypair                     a throwaway grantee identity, so grant/revoke 
 zegel doctor                      probe every dependency and print what works right now
 ```
 
+## Deployed, and read by this CLI
+
+| what | where |
+|---|---|
+| `ZegelAnchor` | Base mainnet `0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e` ([deploy tx](https://basescan.org/tx/0x7c32343d11f3c74dd4d22f48ad15172d80396aabc9e8808666fa3803a2f5d87d), block 50,843,365) |
+| a reference anchored on it | `referenceId 0x644e1b8b…4c30ce`, [anchor tx](https://basescan.org/tx/0xe35a44bd37ee922d719728dcc24e1e046dc98663bf406b9bb722202188d243b6) |
+
+Reading either needs no key, no wallet and no funded account, which is why
+`verify` consults the anchor by default and `doctor` probes it.
+
 ---
 
 ## The 60-second path
@@ -67,12 +77,29 @@ funded account. Times are what they took on a laptop over conference wifi.
    Undo the edit and it is `VALID` again. The commitment is a hash of the claim
    set, so a claim set that flatters its subject stops matching.
 
-7. **`pnpm zegel grant <pubkey>` / `pnpm zegel revoke <pubkey>`** — needs a local
+7. **The same negative control, against mainnet.** Two envelopes ship in
+   `fixtures/`. They address a reference really anchored on Base by
+   `ZegelAnchor` at `0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e`, and they differ
+   by exactly one hex digit of the commitment.
+
+   ```
+   node bin/zegel.mjs verify fixtures/anchored-reference.json
+   node bin/zegel.mjs verify fixtures/anchored-reference-tampered.json
+   ```
+
+   The first reads the contract and prints
+   `on-chain anchor  valid at 0xbcB8…` — exit 0. The second gets
+   `commitment-mismatch` back, which is `verify()` returning **4
+   (CommitmentMismatch)** from Base mainnet, and exits **4**. No key, no wallet,
+   no funded account: the answer comes from the chain, not from this tool, and
+   anyone can repeat the `eth_call`.
+
+8. **`pnpm zegel grant <pubkey>` / `pnpm zegel revoke <pubkey>`** — needs a local
    Bee node (see below). Without one, this refuses, names exactly what is missing
    and why the public gateway cannot substitute for it, and exits non-zero. It
    never reports a grant that did not happen.
 
-Steps 1–6 are the whole product with zero credentials. Step 7 is the part that
+Steps 1–7 are the whole product with zero credentials. Step 8 is the part that
 needs a node, and it says so rather than pretending.
 
 ---
@@ -130,8 +157,8 @@ address** — the output labels it as such.
 
 Loads an envelope from a file, or resolves one from an ENS name through ENSIP-10
 `resolve()` and ENSIP-24 `data()`. Then it recomputes the commitment from a claim
-set, optionally reads the on-chain anchor, optionally tries to open a sealed tier,
-and reports one of seven verdicts with a distinct exit code:
+set, **reads the on-chain anchor**, optionally tries to open a sealed tier, and
+reports one of seven verdicts with a distinct exit code:
 
 | verdict | exit | means |
 |---|---|---|
@@ -153,10 +180,26 @@ the one lie this command cannot afford.
 for content you were never granted, content your grant was withdrawn from, and
 content that never existed. That indistinguishability is the privacy property.
 
+**The anchor is consulted by default.** `ZegelAnchor` at
+`0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e` on Base mainnet is a keyless read, so
+there is no reason to make a verifier opt in to the one check that can tell a live
+reference from a revoked one. An address inside the envelope wins over the
+default; `--anchor` wins over both; `--skip-anchor` turns it off. When the chain
+cannot be reached the verdict says *"the anchor contract could not be read, so
+revocation could not be ruled out — this is a gap in the check, not a pass"*, and
+never returns `valid` as though it had looked.
+
+A reference the contract has never seen comes back `never-anchored`, which is
+reported as a skipped check rather than a failure: locally issued references are
+not anchored until someone pays for it, and that is a fact about the reference
+rather than a problem with it.
+
 | flag | |
 |---|---|
 | `--claims <file>` | claim set to recompute the commitment from; auto-discovered next to the envelope, loudly |
-| `--anchor <address>` `--anchor-rpc <url>` | read the on-chain anchor, so revocation can be ruled out |
+| `--anchor <address>` | override the anchor contract (default: the deployed one on Base) |
+| `--anchor-rpc <url>` | override the Base RPC (default: `mainnet.base.org`, then a fallback) |
+| `--skip-anchor` | do not touch the chain; the verdict then says revocation was not ruled out |
 | `--open <tier>` | try to open a sealed tier — this is what produces a real `not-granted` |
 | `--show-claims` | print the claim set that was verified |
 
@@ -198,9 +241,15 @@ sealed again under the new history. Forward-only, and said out loud.
 ### `zegel doctor`
 
 Probes Mobula's demo host, Mobula's open GraphQL, Mobula's production host (only
-if `MOBULA_API_KEY` is set), the public Swarm gateway, a local Bee node, and the
-Ethereum and Base RPCs. `--deep` also hits the three Mobula routes known to return
-500s upstream.
+if `MOBULA_API_KEY` is set), the public Swarm gateway, a local Bee node **and its
+postage capacity**, the Ethereum and Base RPCs, and **the `ZegelAnchor` contract on
+Base** — the last by asking it about a reference that is genuinely anchored, so a
+green tick there means the enum decoded and not merely that a socket opened.
+`--deep` also hits the three Mobula routes known to return 500s upstream.
+
+The Bee row is degraded rather than green when the node has no postage capacity
+left, because a full batch fails a seal with an error nobody expects. That is the
+one failure that is cheap to see here and expensive to discover on stage.
 
 Four states, and the fourth matters: `works`, `degraded`, `unavailable`, and
 `not set up` — so "you have not configured this" is never painted the same red as
@@ -250,7 +299,8 @@ prints two banner lines first.
 | `SWARM_GATEWAY_URL` | public Swarm gateway | `https://api.gateway.ethswarm.org` |
 | `ZEGEL_ACT_PUBLISHER` | ACT publisher key when the backend will not report one | unset |
 | `ETH_RPC_URL` | mainnet RPC, for ENS resolution | `ethereum-rpc.publicnode.com`, then `eth.merkle.io` |
-| `BASE_RPC_URL` | Base RPC, for the commitment anchor | `mainnet.base.org`, then `base-rpc.publicnode.com` |
+| `ZEGEL_BASE_RPC` / `BASE_RPC_URL` | Base RPC, for the commitment anchor | `mainnet.base.org`, then `base-rpc.publicnode.com` |
+| `ZEGEL_ANCHOR_ADDRESS` | ZegelAnchor contract | `0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e` |
 | `NO_COLOR` / `FORCE_COLOR` / `ZEGEL_ASCII` | rendering | |
 | `ZEGEL_DEBUG` | print stack traces for unexpected failures | unset |
 
@@ -275,13 +325,20 @@ Said here because they are true, and because a judge will find them anyway.
 3. **Revocation is forward-only.** A past grantee keeps what they downloaded.
    `revoke` prints this every time.
 
-4. **Without `--anchor`, `verify` cannot rule out revocation.** It says so in the
-   verdict rather than quietly returning `valid` as though it had checked.
+4. **`verify` needs the chain to rule out revocation, and says so when it cannot
+   reach it.** The anchor is read by default over a public Base RPC. If that read
+   fails, the verdict carries "this is a gap in the check, not a pass" rather than
+   quietly returning `valid` as though it had looked.
 
 5. **The timezone is an inference, not a fact.** One assumption, printed beside
    the conclusion, with the raw histogram underneath it.
 
-6. **`--json` is a snapshot, not a stream.** Live Mobula WebSocket data needs a
+6. **A Bee node with no postage capacity left falls back to the gateway, loudly.**
+   `issue` prints why the node was skipped and that confidentiality has dropped
+   from key-bound to obscurity. It is a downgrade, it is announced as one, and
+   `doctor` flags the exhausted batch before you hit it.
+
+7. **`--json` is a snapshot, not a stream.** Live Mobula WebSocket data needs a
    paid-plan key; there is no streaming mode here that pretends otherwise.
 
 ---
@@ -292,17 +349,32 @@ Said here because they are true, and because a judge will find them anyway.
 pnpm test
 ```
 
-**151 passing** across 8 files. Coverage is the pure logic — number and unit
-formatting, ANSI-aware table and box layout, colour decisions, the exposure
-analysis and the timezone inference (against a real recorded Mobula bundle, not
-invented JSON), the seven verify verdicts and their precedence when several fail
-at once, claim and dossier rendering, argument parsing, and output plumbing.
+**178 passing** across 10 files. The pure half covers number and unit formatting,
+ANSI-aware table and box layout, colour decisions, the exposure analysis and the
+timezone inference (against a real recorded Mobula bundle, not invented JSON), the
+seven verify verdicts and their precedence when several fail at once, anchor
+configuration and call encoding, claim and dossier rendering, argument parsing,
+and output plumbing.
+
+The live half is the interesting one. `test/live.anchor.test.ts` asks the deployed
+`ZegelAnchor` on Base mainnet three questions and asserts all three answers:
+
+| call | answer |
+|---|---|
+| `verify(referenceId, real commitment)` | **1** — Valid |
+| `verify(referenceId, one hex digit changed)` | **4** — CommitmentMismatch |
+| `verify(unknown referenceId, …)` | **0** — NeverAnchored |
+
+plus `isValid` and `issuerOf`, the same mismatch through a raw `eth_call` in the
+shape you would paste into `curl`, and that the two shipped fixtures differ by
+exactly one character. That is the negative control as something reproducible
+rather than something asserted in a README.
 
 `test/live.test.ts` calls Mobula, the Swarm gateway and the RPCs for real, with no
-mocks, and **skips itself when they are unreachable** — an offline laptop should
-not produce a red build, and certainly not a green one by asserting less. Set
-`ZEGEL_SKIP_LIVE=1` to skip it deliberately; that run reports **143 passing,
-8 skipped**.
+mocks. Both live files **skip themselves when their hosts are unreachable** — an
+offline laptop should not produce a red build, and certainly not a green one by
+asserting less. Set `ZEGEL_SKIP_LIVE=1` to skip them deliberately; that run
+reports **160 passing, 18 skipped**.
 
 ```
 pnpm typecheck

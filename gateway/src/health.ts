@@ -61,8 +61,11 @@ export async function buildHealthReport(config: GatewayConfig): Promise<HealthRe
   const store = await config.store.probe();
   checks.push({
     name: 'store',
-    // Without storage there is nothing to serve, so this one is fatal.
-    status: store.ok ? 'ok' : 'down',
+    // A failed store with nothing held answers no query at all, so it is fatal. One
+    // that still holds usable envelopes — a feed store whose Bee endpoint blipped —
+    // can answer some names, and calling that `down` would take a working deployment
+    // out of rotation for a fault it is surviving.
+    status: store.ok ? 'ok' : store.records > 0 ? 'degraded' : 'down',
     detail: `${store.detail}; ${store.records} envelope(s) held`,
     latencyMs: store.latencyMs,
   });
@@ -76,14 +79,24 @@ export async function buildHealthReport(config: GatewayConfig): Promise<HealthRe
         : 'unrestricted: a response will be signed for any resolver address that asks',
   });
 
-  const owners = await config.owners.probe();
-  checks.push({
-    name: 'name-ownership',
-    // Publishing breaks; resolution does not. Degraded, not down.
-    status: owners.ok ? 'ok' : 'degraded',
-    detail: `${config.owners.kind}: ${owners.detail}`,
-    latencyMs: owners.latencyMs,
-  });
+  if (config.store.writable) {
+    const owners = await config.owners.probe();
+    checks.push({
+      name: 'name-ownership',
+      // Publishing breaks; resolution does not. Degraded, not down.
+      status: owners.ok ? 'ok' : 'degraded',
+      detail: `${config.owners.kind}: ${owners.detail}`,
+      latencyMs: owners.latencyMs,
+    });
+  } else {
+    // Nothing can be published through a read-only store, so an absent owner source
+    // is not a fault here. Authority moved to whoever holds the feed's signing key.
+    checks.push({
+      name: 'name-ownership',
+      status: 'skipped',
+      detail: `the ${config.store.kind} store is read-only, so publish authority is the feed key, not this gateway`,
+    });
+  }
 
   checks.push(await probeResolverOnChain(config));
 

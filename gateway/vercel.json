@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm exec esbuild vercel-entry.ts --bundle --platform=node --format=esm --target=node22 --outfile=api/index.js --banner:js=\"import{createRequire as ___cr}from'node:module';const require=___cr(import.meta.url);\"",
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+}

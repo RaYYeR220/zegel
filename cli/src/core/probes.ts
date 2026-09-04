@@ -11,6 +11,8 @@
  * whether to care.
  */
 
+import { DEFAULT_BASE_RPC, baseRpcFromEnv, probeAnchor } from './anchor.js';
+
 export type Capability = 'ok' | 'degraded' | 'unavailable' | 'not-configured';
 
 export interface ProbeResult {
@@ -43,13 +45,14 @@ const DEFAULT_TIMEOUT = 8_000;
  * More than one because a booth demo cannot afford to discover that today's
  * favourite endpoint is rate-limiting: these both answer `eth_chainId` with no
  * key and no signup, and the ENS lookups here are a handful of `eth_call`s.
+ * The Base equivalents live in `anchor.ts`, next to what they are read for.
  */
 export const ETH_RPCS = ['https://ethereum-rpc.publicnode.com', 'https://eth.merkle.io'] as const;
-export const BASE_RPCS = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'] as const;
 
 export const DEFAULT_ETH_RPC = ETH_RPCS[0];
-export const DEFAULT_BASE_RPC = BASE_RPCS[0];
 export const DEFAULT_BEE_URL = 'http://127.0.0.1:1633';
+
+export { BASE_RPCS, DEFAULT_BASE_RPC } from './anchor.js';
 
 interface RawProbe {
   ok: boolean;
@@ -118,7 +121,8 @@ export async function runProbes(options: ProbeOptions = {}): Promise<ProbeResult
   const beeUrl = env['ZEGEL_BEE_URL'] ?? env['BEE_API_URL'] ?? DEFAULT_BEE_URL;
   const swarmUrl = env['SWARM_GATEWAY_URL'] ?? 'https://api.gateway.ethswarm.org';
   const ethRpc = env['ETH_RPC_URL'] ?? DEFAULT_ETH_RPC;
-  const baseRpc = env['BASE_RPC_URL'] ?? DEFAULT_BASE_RPC;
+  const configuredBaseRpc = baseRpcFromEnv(env);
+  const baseRpc = configuredBaseRpc ?? DEFAULT_BASE_RPC;
   const apiKey = env['MOBULA_API_KEY'];
 
   const tasks: Promise<ProbeResult>[] = [
@@ -128,7 +132,8 @@ export async function runProbes(options: ProbeOptions = {}): Promise<ProbeResult
     swarmGateway(swarmUrl, timeout, doFetch),
     beeNode(beeUrl, timeout, doFetch),
     rpc('rpc-ethereum', 'Ethereum RPC (ENS resolution)', ethRpc, '0x1', timeout, doFetch),
-    rpc('rpc-base', 'Base RPC (commitment anchor)', baseRpc, '0x2105', timeout, doFetch),
+    rpc('rpc-base', 'Base RPC (reachable at all)', baseRpc, '0x2105', timeout, doFetch),
+    probeAnchor(configuredBaseRpc === undefined ? {} : { rpcUrl: configuredBaseRpc }),
   ];
 
   if (options.deep === true) tasks.push(mobulaFlaky(timeout, doFetch));
@@ -303,17 +308,45 @@ async function beeNode(
   }
   const hasPublisher = publicKey !== null && publicKey !== '';
 
+  // Postage is what keeps an upload alive, and a batch whose buckets are full
+  // fails the seal with an error nobody expects. Cheap to check here, expensive
+  // to discover on stage.
+  const stamps = await request(new URL('/stamps', url).toString(), { method: 'GET' }, timeout, doFetch);
+  let usableBatches = 0;
+  let batchDetail = 'no postage information';
+  if (stamps.ok) {
+    try {
+      const parsed = JSON.parse(stamps.body) as {
+        stamps?: { usable?: boolean; utilizationRatio?: number; batchTTL?: number }[];
+      };
+      const all = parsed.stamps ?? [];
+      const usable = all.filter((s) => s.usable === true && (s.utilizationRatio ?? 0) < 1);
+      usableBatches = usable.length;
+      batchDetail =
+        all.length === 0
+          ? 'no postage batch on this node'
+          : usableBatches === 0
+            ? `${all.length} batch(es), all full or unusable`
+            : `${usableBatches} usable batch(es)`;
+    } catch {
+      batchDetail = 'postage response was not readable';
+    }
+  }
+
+  const ready = hasPublisher && usableBatches > 0;
   return {
     id: 'bee-node',
     name: 'Local Bee node (grant / revoke)',
     endpoint: url,
-    status: hasPublisher ? 'ok' : 'degraded',
+    status: ready ? 'ok' : 'degraded',
     detail: hasPublisher
-      ? `HTTP ${health.status}, ACT publisher ${(publicKey ?? '').slice(0, 10)}…`
+      ? `HTTP ${health.status}, ACT publisher ${(publicKey ?? '').slice(0, 10)}…, ${batchDetail}`
       : `HTTP ${health.status}, but /addresses did not report a public key (${addresses.error ?? `HTTP ${addresses.status}`})`,
-    cost: hasPublisher
-      ? ''
-      : 'without the ACT publisher key nothing sealed here can be read back; set ZEGEL_ACT_PUBLISHER if you know it',
+    cost: !hasPublisher
+      ? 'without the ACT publisher key nothing sealed here can be read back; set ZEGEL_ACT_PUBLISHER if you know it'
+      : usableBatches === 0
+        ? 'the node has no postage capacity left, so sealing through it fails; issue falls back to the public gateway, where confidentiality is obscurity and grant/revoke are unavailable'
+        : '',
     latencyMs: health.latencyMs,
   };
 }

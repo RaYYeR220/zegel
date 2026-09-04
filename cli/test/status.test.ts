@@ -61,7 +61,7 @@ describe('the five verdicts a counterparty acts on', () => {
     const result = assess({ commitment: mismatching });
     expect(result.status).toBe('tampered');
     expect(result.exitCode).toBe(EXIT_CODES.tampered);
-    expect(result.reasons.join(' ')).toContain('Do not rely on it');
+    expect(result.reasons.join(' ')).toContain('Do not rely on these claims');
   });
 
   it('is tampered when the anchor reports a different commitment', () => {
@@ -146,6 +146,50 @@ describe('refusing to round anything up', () => {
     const result = assess({ envelope: envelope({ expiresAt: 'whenever' }), commitment: matching });
     const expiry = result.checks.find((c) => c.name === 'expiry');
     expect(expiry?.outcome).toBe('skipped');
+  });
+});
+
+describe('what the anchor adds', () => {
+  it('reports a chain-only mismatch as tampering, and says the chain said it', () => {
+    const result = assess({ anchor: 'commitment-mismatch' });
+    expect(result.status).toBe('tampered');
+    expect(result.reasons.join(' ')).toContain('came from the chain, not from this tool');
+  });
+
+  it('says the anchor confirmed the reference when it did', () => {
+    const result = assess({ commitment: matching, anchor: 'valid' });
+    expect(result.reasons.join(' ')).toContain('not expired, not revoked');
+  });
+
+  it('carries the issuer and expiry the contract reported into the check line', () => {
+    const result = assess({
+      commitment: matching,
+      anchor: 'valid',
+      anchorAddress: '0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e',
+      anchorNote: 'issuer 0x7C76, expires 2026-12-02T23:36:25.000Z',
+    });
+    const check = result.checks.find((c) => c.name === 'on-chain anchor');
+    expect(check?.detail).toContain('0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e');
+    expect(check?.detail).toContain('issuer 0x7C76');
+  });
+
+  it('distinguishes an anchor nobody asked about from one that could not be read', () => {
+    const notAsked = assess({ commitment: matching });
+    expect(notAsked.checks.find((c) => c.name === 'on-chain anchor')?.detail).toContain(
+      'no anchor was consulted',
+    );
+
+    const unreachable = assess({ commitment: matching, anchorAddress: '0xbcB8' });
+    expect(unreachable.checks.find((c) => c.name === 'on-chain anchor')?.detail).toContain(
+      'could not be read',
+    );
+    expect(unreachable.reasons.join(' ')).toContain('a gap in the check, not a pass');
+  });
+
+  it('says nothing was checked about the content when no claim set was supplied', () => {
+    const result = assess({ anchor: 'valid' });
+    expect(result.status).toBe('valid');
+    expect(result.reasons.join(' ')).toContain('only about the reference itself');
   });
 });
 

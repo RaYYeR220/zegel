@@ -1,0 +1,31 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "allowJs": false,
+    "noEmit": true,
+    "incremental": true,
+    "isolatedModules": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "plugins": [{ "name": "next" }],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./src/*"],
+      "@zegel/evidence": ["../packages/evidence/src/index.ts"],
+      "@zegel/seal": ["../packages/seal/src/index.ts"],
+      "@zegel/sdk": ["../packages/sdk/src/index.ts"],
+      "@zegel/sdk/types": ["../packages/sdk/src/types.ts"],
+      "@zegel/sdk/canonical": ["../packages/sdk/src/canonical.ts"],
+      "@zegel/sdk/*": ["../packages/sdk/src/*"],
+      "@zegel/cli/exposure": ["../cli/src/core/exposure.ts"],
+      "@zegel/cli/probes": ["../cli/src/core/probes.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

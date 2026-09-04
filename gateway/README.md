@@ -4,7 +4,9 @@ The off-chain half of `ZegelResolver`. It answers one question, for one record k
 
 > `data(node, "zegel.envelope.v1")` — what is the public sealed envelope for this name?
 
-It is a **dumb pipe**, on purpose, and that is the strongest thing about it.
+It is a **dumb pipe**, on purpose, and that is the strongest thing about it. It is
+also **stateless**: the envelope lives in a Swarm feed, and this process holds no
+database, no file and nothing worth backing up.
 
 ```bash
 pnpm install
@@ -76,6 +78,73 @@ that never existed**.
 
 ---
 
+## Where the envelope comes from
+
+```
+ENS name  ->  ZegelResolver (ERC-3668)  ->  this gateway  ->  Swarm feed  ->  envelope
+```
+
+A Swarm feed is a mutable pointer: an owner plus a topic resolves to the latest
+update. Publishing is **writing the feed**, which happens on the issuer's own Bee node
+— it needs a signing key and postage, neither of which this gateway has or should.
+The gateway only ever reads, and reads on a public Bee gateway are free and
+unauthenticated, so a deployment needs no node of its own.
+
+That is what makes this process disposable. There is nothing to migrate, nothing to
+back up, and no instance that knows something its siblings do not; run one, or fifty
+serverless ones, or move it to a different host mid-demo. It also caps what an
+operator is worth: the feed reads identically from **any** Bee node in the world, so a
+censoring or vanished gateway costs you the relay and nothing else.
+
+### The topic, derived from the name
+
+```
+topic = keccak256( utf8(dataKey) ‖ node )
+```
+
+`node` is the ENS namehash, `dataKey` is the ENSIP-24 record key. Nothing secret goes
+in, deliberately: anyone holding the name can recompute the topic, fetch the feed
+themselves, and check that this gateway is serving what the feed says. A relay you can
+audit is worth more than one you have to trust.
+
+Worked example, `alice.eth` under `zegel.envelope.v1`:
+
+```
+node   0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec
+topic  0xe2bdd8e5a9b5a5cf463ffd8e2e12d8c24adfaaefe5b2bb6750fc6a773f3ca4b5
+```
+
+```bash
+curl https://api.gateway.ethswarm.org/feeds/<owner>/e2bdd8e5a9b5a5cf463ffd8e2e12d8c24adfaaefe5b2bb6750fc6a773f3ca4b5
+```
+
+That vector is pinned in `test/swarm-feed.test.ts`, because changing the derivation
+silently orphans every feed already published.
+
+### Following the pointer
+
+A feed slot holds 4 KB, so the feed stores a **reference** and the envelope is
+uploaded as ordinary Swarm content behind it. Bee 2.x resolves that server-side and
+returns the content directly — verified live against both a local node and
+`api.gateway.ethswarm.org` — but not every version and not every deployment will, so a
+reference-shaped body (32 bytes, or 8 timestamp bytes followed by 32) is followed to
+`/bytes/{reference}` rather than assumed away.
+
+### When the feed cannot be read
+
+An unreachable feed answers with the **same 404 as an unpublished name**. That
+collapse is deliberate: the only alternative is signing an answer we could not verify,
+and a signed response is a bearer token that outlives the moment it was minted. It is
+not silent, though — the failure is recorded and `/health` degrades with the reason,
+which is where the difference between "absent" and "unreachable" belongs.
+
+Reads are cached for 15 seconds by default, and a cached envelope is never served past
+its own `expiresAt`, however long the TTL. If the feed goes unreachable while a
+still-valid envelope is cached, that envelope keeps being served — it is the same
+content, and its own expiry still binds — and `/health` still reports the fault.
+
+---
+
 ## The two request shapes
 
 ERC-3668 makes both mandatory, and which one a client uses is decided by the
@@ -123,6 +192,28 @@ representation.
 ---
 
 ## Publishing an envelope
+
+### Stateless: write the feed
+
+The production path. Runs on the issuer's machine, next to their Bee node.
+
+```bash
+node scripts/write-feed.ts   --envelope ./envelope.json   --name alice.eth   --key 0x…            # the feed signing key; never leaves the process
+  --batch <postage batch id>
+```
+
+It uploads the envelope, writes the feed update that points at it, prints the topic
+and the `ZEGEL_FEED_OWNER` to configure, and then **reads it back through the public
+gateway** to prove the deployed gateway will see it. Authority here is possession of
+the feed key: a different key is a different feed, and the gateway reads exactly one
+owner's.
+
+### Stateful stores: the signed admin route
+
+For the `file` and `memory` backends, where this gateway does hold the envelope. With
+a `swarm-feed` store the route answers **501** up front — refusing before
+authenticating, because a signature verified and then discarded looks to the caller
+like an authorisation failure.
 
 ```bash
 node scripts/publish.ts \
@@ -203,8 +294,12 @@ Behind one interface (`src/store/types.ts`), so the demo needs no database:
 
 | Backend | Use |
 |---|---|
-| `MemoryEnvelopeStore` | Tests, and Cloudflare Workers seeded from `ZEGEL_ENVELOPES`. Reports itself as lossy-on-restart in `/health`. |
-| `FileEnvelopeStore` | The demo. One JSON file; writes go to a temp file and are renamed into place, so a process killed mid-publish leaves the previous file intact. |
+| `SwarmFeedEnvelopeStore` | **The deploy path.** Reads the current envelope from a Swarm feed on every request and keeps nothing. Read-only: `writable` is false and the admin route refuses. |
+| `FileEnvelopeStore` | A local run with a real disk. One JSON file; writes go to a temp file and are renamed into place, so a process killed mid-publish leaves the previous file intact. |
+| `MemoryEnvelopeStore` | Tests, and a Worker seeded from `ZEGEL_ENVELOPES`. Reports itself as lossy-on-restart in `/health`. |
+
+Choosing `file` from a serverless entry point throws at boot with a sentence saying
+so, rather than losing every publish at the next cold start.
 
 A corrupt or unreadable store is a **failure**, never an empty one: reading it throws
 and `/health` goes `down`. "No envelopes published" and "I cannot read my envelopes"
@@ -224,9 +319,9 @@ found, and never claim green for something you did not check.
   "signer": "0xB33D…c01E",
   "checks": [
     { "name": "signer", "status": "degraded", "detail": "0xB33D…c01E was generated at boot; no deployed resolver allowlists it" },
-    { "name": "store", "status": "ok", "detail": "JSON file at …/.zegel/envelopes.json; 1 envelope(s) held" },
+    { "name": "store", "status": "ok", "detail": "Swarm feed 0x1d75…74b8 via https://api.gateway.ethswarm.org, cached 15s; 1 envelope(s) held" },
     { "name": "resolver-allowlist", "status": "ok", "detail": "signing only for 0x…" },
-    { "name": "name-ownership", "status": "ok", "detail": "chain: ENS registry 0x0000…2e1e on chain 1" },
+    { "name": "name-ownership", "status": "skipped", "detail": "the swarm-feed store is read-only, so publish authority is the feed key, not this gateway" },
     { "name": "resolver-onchain", "status": "skipped", "detail": "no ZEGEL_RPC_URL, so the on-chain signer allowlist was not checked" }
   ],
   "warnings": ["…"]
@@ -234,7 +329,12 @@ found, and never claim green for something you did not check.
 ```
 
 - An unconfigured dependency is **`skipped`**, never `ok`.
-- `store` failing is `down` — and `/health` answers **503**. Everything else degrades.
+- `store` failing with nothing held is `down`, and `/health` answers **503**. Failing
+  while it still holds usable envelopes is `degraded`: a feed store whose Bee endpoint
+  blipped can still answer, and calling that `down` would pull a working deployment out
+  of rotation for a fault it is surviving.
+- `name-ownership` is `skipped` for a read-only store, because nothing can be published
+  through this gateway at all; authority moved to whoever holds the feed key.
 - `resolver-onchain` is the check worth having: it reads `signers(address)` on the
   deployed resolver, so a gateway signing with a key the resolver does not trust says
   so, in one line, naming the `setSigner(...)` call that fixes it. Every other signal
@@ -255,7 +355,11 @@ All optional; see `.env.example`.
 | `ZEGEL_ENS_REGISTRY` | `0x0000…2e1e` | |
 | `ZEGEL_NAME_WRAPPER` | — | A wrapped `.eth` name has the NameWrapper as its registry owner; set this to follow the second hop. Configuration rather than a constant, because a wrong hardcoded address would present as "you do not own this name". |
 | `ZEGEL_NAME_OWNERS` | — | `node=owner` pairs, for a local run with no RPC. |
-| `ZEGEL_STORE` / `ZEGEL_STORE_PATH` | `file` / `.zegel/envelopes.json` | |
+| `ZEGEL_STORE` | `file` on the Node entry, `swarm-feed` everywhere else | `swarm-feed`, `file` or `memory`. |
+| `ZEGEL_FEED_OWNER` | — | Required for `swarm-feed`. The address whose feed is authoritative; `scripts/write-feed.ts` prints it. |
+| `ZEGEL_BEE_URL` | `https://api.gateway.ethswarm.org` | Bee API for feed reads. Free and unauthenticated on the public gateway. |
+| `ZEGEL_FEED_CACHE_TTL` | `15` | Seconds. A cached envelope never outlives its own `expiresAt`. |
+| `ZEGEL_STORE_PATH` | `.zegel/envelopes.json` | `file` backend only. |
 | `ZEGEL_SIGNATURE_TTL` / `ZEGEL_CACHE_TTL` | `60` / `30` | Cache TTL is clamped to the signature TTL. |
 | `ZEGEL_PORT` | `8787` | |
 
@@ -270,11 +374,38 @@ ZEGEL_SIGNER_KEY=0x… ZEGEL_RESOLVERS=0x… ZEGEL_RPC_URL=https://… \
 NODE_ENV=production node src/index.ts
 ```
 
-On Cloudflare Workers, `src/worker.ts` is the entry point (`wrangler.toml` is
-included; `wrangler secret put ZEGEL_SIGNER_KEY`). There is no filesystem there, so
-the store is in-memory, seeded from `ZEGEL_ENVELOPES`, and `/health` reports it as
-lossy — enough for a name whose envelope changes rarely. Anything longer-lived wants
-KV or D1 behind the same `EnvelopeStore` interface.
+### Vercel
+
+`api/[[...route]].ts` is the entry point and `vercel.json` rewrites every path into
+it, so the on-chain gateway URL stays clean — `https://…/v1/{sender}/{data}.json`, no
+`/api` in it. The app is mounted at both `/` and `/api` inside the function: whether a
+platform hands a rewritten function the original path or the destination one is not
+something to discover in production, when the URL that is wrong is already on chain.
+
+Serverless means the store must be `swarm-feed`; `file` throws at boot with an
+explanation. Set exactly these:
+
+| Variable | Value |
+|---|---|
+| `ZEGEL_SIGNER_KEY` | the gateway signing key (mark it sensitive) |
+| `ZEGEL_RESOLVERS` | the deployed `ZegelResolver` address |
+| `ZEGEL_CHAIN_ID` | `1` |
+| `ZEGEL_STORE` | `swarm-feed` |
+| `ZEGEL_FEED_OWNER` | the feed owner address printed by `scripts/write-feed.ts` |
+| `ZEGEL_BEE_URL` | `https://api.gateway.ethswarm.org` |
+| `ZEGEL_RPC_URL` | a mainnet RPC — optional, but without it `/health` cannot check the on-chain signer allowlist |
+| `NODE_ENV` | `production` — makes a missing `ZEGEL_SIGNER_KEY` a boot failure instead of a throwaway key |
+
+`ZEGEL_STORE_PATH`, `ZEGEL_NAME_OWNERS` and `ZEGEL_NAME_WRAPPER` are not used by a
+feed-backed deployment, and neither are the writer's `ZEGEL_FEED_KEY` and
+`ZEGEL_POSTAGE_BATCH` — those belong on the issuer's machine and must never be set on
+the gateway.
+
+### Cloudflare Workers
+
+`src/worker.ts` is the entry point (`wrangler.toml` is included;
+`wrangler secret put ZEGEL_SIGNER_KEY`). Same store rules as Vercel: `swarm-feed` by
+default, or a fixed set pinned into memory via `ZEGEL_ENVELOPES`.
 
 Then wire the resolver, which is three transactions by two different parties:
 
@@ -305,16 +436,25 @@ pnpm test
 ```
 
 ```
-test/encoding.test.ts    19  digest layout, low-s, selector routing, DNS names, envelope validation
+test/swarm-feed.test.ts  25  topic derivation, pointer following, cache, unreachable feeds
 test/lookup.test.ts      23  both request shapes, expiry capping, malformed calldata, refusals
+test/encoding.test.ts    19  digest layout, low-s, selector routing, DNS names, envelope validation
 test/admin.test.ts       15  EIP-712 publish, wrong signer, rollback, envelope validation
 test/store.test.ts        9  memory and file backends, restart, corruption
 test/health.test.ts       8  ok / degraded / down, skipped-not-ok
-test/cors.test.ts         3  preflight, success, error responses
 test/contract.test.ts     9  the real ZegelResolver on anvil  (+1 skip marker)
+test/swarm-live.test.ts   4  live Swarm reads and a real feed round trip
+test/cors.test.ts         3  preflight, success, error responses
+test/vercel.test.ts       3  boots from env alone, both path spellings, CORS
                          ---
-                          86 passed, 1 skipped
+                         118 passed, 1 skipped
 ```
+
+Two suites reach the outside world and both self-skip, loudly, as recorded tests:
+the anvil cross-check below, and `test/swarm-live.test.ts`, which probes
+`api.gateway.ethswarm.org` and — when a Bee node with a usable postage batch is
+reachable — writes a feed with a throwaway key and reads the envelope back through the
+same code the gateway uses.
 
 ### The cross-check against the real contract
 
@@ -361,9 +501,18 @@ stopped running.
    `User-Agent`, and which name was queried. ERC-3668 names this as a privacy leak to
    be proxied away, and it is real. It learns nothing about the *reader's identity* in
    any trustworthy form — but "not trustworthy" is not "not observed".
-4. **Availability is not durability.** The file store is one JSON file. Losing it
-   loses the mapping from name to envelope; the sealed content on Swarm survives, and
-   so does the anchor, but the name stops resolving until the envelope is republished.
-5. **`GET /envelopes/:node` is unauthenticated.** It has to be — the envelope is
+4. **The feed key is a single point of authority.** Whoever holds it can publish any
+   envelope under any name this gateway serves, because the gateway trusts one feed
+   owner. That is the same trust the name's owner already places in their issuer, but
+   it is trust, and it is not on chain.
+5. **Postage is a clock.** Swarm content lives as long as its batch is funded. An
+   envelope whose batch lapses stops being retrievable and the name stops resolving —
+   loudly, in `/health`, but it stops. Top the batch up, or accept the expiry as the
+   reference's expiry.
+6. **Propagation is not instant.** A feed written on one node takes a moment to be
+   readable from another. Publishing then resolving in the same breath can 404 once.
+7. **An unreachable feed is indistinguishable from an unpublished name**, to a client.
+   Deliberately — see above — with the difference visible in `/health`.
+8. **`GET /envelopes/:node` is unauthenticated.** It has to be — the envelope is
    public by design — but it means node-by-node enumeration is possible for anyone who
    can guess a namehash. There is deliberately no listing endpoint.
