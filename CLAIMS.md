@@ -144,21 +144,20 @@ Measured 2026-09-04, each package after `pnpm install` in its own directory.
 | F1 | `contracts`: 120 passed, 0 failed, 0 skipped | REPRODUCIBLE | `forge test` |
 | F2 | Contract coverage: 99.04% lines, 100.00% functions, 94.92% branches | REPRODUCIBLE | `forge coverage` over `src/` |
 | F3 | `cli`: 178 passed | REPRODUCIBLE | `pnpm test` |
-| F4 | `gateway`: 115 passed, 4 skipped, **1 file fails to load** | REPRODUCIBLE | `pnpm test`; see the known failure below |
-| F5 | `packages/evidence`: 98 passed, 1 skipped | REPRODUCIBLE | `pnpm test` |
+| F4 | `gateway`: 118 passed, 1 skipped | REPRODUCIBLE | `pnpm test` |
+| F5 | `packages/evidence`: 98 passed, 1 skipped | REPRODUCIBLE | `pnpm test`; the skip is the fixture recorder |
 | F6 | `solana`: 89 passed, 7 skipped | REPRODUCIBLE | `pnpm test`; the 7 are `devnet.integration`, which needs a funded devnet keypair |
 | F7 | `packages/seal`: 83 passed with a local Bee node; 82 passed / 1 skipped without | REPRODUCIBLE | `pnpm test` |
-| F8 | **683 passing in total** | REPRODUCIBLE | sum of F1 and F3–F7 |
-| F9 | The gateway suite drives a full ERC-3668 round trip against the real `ZegelResolver` on a local anvil, through viem, for both the `data()` and `resolve()` paths | REPRODUCIBLE | `gateway/test/contract.test.ts` |
+| F8 | `packages/sdk`: 16 passed | REPRODUCIBLE | `pnpm test` |
+| F9 | **702 passing in total** | REPRODUCIBLE | sum of F1 and F3–F8 |
+| F10 | The gateway suite drives a full ERC-3668 round trip against the real `ZegelResolver` on a local anvil, through viem, for both the `data()` and `resolve()` paths | REPRODUCIBLE | `gateway/test/contract.test.ts` |
 
-**Two known failures, stated rather than omitted:**
+**Tests are run per package**, each after `pnpm install` in its own directory. A recursive
+`pnpm -r test` from the workspace root exits 0 but covers only six of the seven workspace
+projects — `app` has no test script, and `cli` and `contracts` are outside the workspace
+entirely — so it reports 404 of the 702 and is not the number to quote.
 
-1. `gateway/test/vercel.test.ts` fails to load — it imports `../api/[[...route]].ts`, which was
-   replaced during deployment by a git-ignored esbuild bundle at `api/index.js`. The other nine
-   gateway files pass, and the live `/health` endpoint exercises the same boot path.
-2. `pnpm test` at the workspace root exits 1. `@zegel/sdk` declares a `test` script but ships no
-   test files, so the recursive run stops there. The per-package commands above are the ones to
-   run.
+**A flake that was here and is now fixed.** `gateway/test/contract.test.ts > is rejected on chain once the response has expired` used to derive its expiry from the host clock. anvil's `block.timestamp` only advances when a block is mined, so a chain sitting a second behind wall time did not consider the response expired and the revert did not fire — it failed roughly one run in four. The expiry is now read from the chain's own latest block, and the test passed five consecutive runs. The contract was never at fault: `ZegelResolver` enforces `if (expires < block.timestamp) revert SignatureExpired(...)`, and `test_RevertWhen_SignatureExpired`, `test_ExpiryBoundaryIsInclusive` and `testFuzz_ExpiryIsEnforced` pin the same boundary deterministically with `vm.warp`.
 
 **A real bug the anvil cross-check caught:** the resolver allowlist compared un-normalised
 addresses, `receipt.contractAddress` came back lowercase, and every lookup 404'd. Nothing short

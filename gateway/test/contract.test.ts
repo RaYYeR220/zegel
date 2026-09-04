@@ -183,7 +183,13 @@ describe.skipIf(!runnable)('against the deployed ZegelResolver on anvil', () => 
 
   it('is rejected on chain once the response has expired', async () => {
     const callData = dataCallData(ALICE_NODE);
-    const expires = BigInt(Math.floor(Date.now() / 1000) - 1);
+    // Expiry has to be measured against the chain's clock, not the host's. anvil's
+    // block.timestamp only advances when a block is mined, so a chain sitting a second
+    // or two behind wall time does not consider a host-relative "one second ago"
+    // expired — and the assertion fails for a reason that has nothing to do with the
+    // contract. Read the block and go back from there.
+    const { timestamp } = await publicClient.getBlock({ blockTag: 'latest' });
+    const expires = timestamp - 60n;
     const signature = await gatewaySigner.signResponse(resolver, expires, callData, envelope);
 
     await expect(

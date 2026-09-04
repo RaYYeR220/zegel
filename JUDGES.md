@@ -148,8 +148,9 @@ Every package installs and tests standalone. From the repo root:
 cd cli && pnpm install          # ~20 s
 ```
 
-> **Do not run `pnpm test` at the workspace root.** `@zegel/sdk` declares a test script but ships
-> no test files, so the recursive run exits 1 there. Use the per-package commands below.
+> Tests are run **per package**, each after `pnpm install` in its own directory. A recursive
+> `pnpm -r test` from the root covers six of the seven workspace projects and misses `cli` and
+> `contracts` entirely, so it reports 404 of the 702 — see step 12.
 
 ## 7. `zegel doctor` — every dependency, probed live (5 seconds)
 
@@ -301,20 +302,18 @@ Then, each from its own directory after `pnpm install` there:
 
 | Package | Result |
 |---|---|
+| `contracts` | 120 passed |
 | `cli` | 178 passed |
-| `gateway` | 115 passed, 4 skipped — **and 1 file fails to load**, see below |
+| `gateway` | 118 passed, 1 skipped |
 | `packages/evidence` | 98 passed, 1 skipped |
 | `solana` | 89 passed, 7 skipped (devnet integration, needs a funded devnet keypair) |
 | `packages/seal` | 83 passed with a local Bee node; 82 passed / 1 skipped without |
-| `contracts` | 120 passed |
-| **Total passing** | **683** |
+| `packages/sdk` | 16 passed |
+| **Total passing** | **702** |
 
 Coverage over `contracts/src`: 99.04% lines, 100.00% functions, 94.92% branches.
 
-**Known failure, stated rather than hidden:** `gateway/test/vercel.test.ts` fails to load. It
-imports `../api/[[...route]].ts`, which was replaced during deployment by a git-ignored esbuild
-bundle at `api/index.js`. The other nine gateway files pass, and the live `/health` endpoint
-exercises the same boot path.
+**A flake that was here and is now fixed.** `gateway/test/contract.test.ts > is rejected on chain once the response has expired` used to derive its expiry from the host clock. anvil's `block.timestamp` only advances when a block is mined, so a chain sitting a second behind wall time did not consider the response expired and the revert did not fire — it failed roughly one run in four. The expiry is now read from the chain's own latest block, and the test passed five consecutive runs. The contract was never at fault: `ZegelResolver` enforces `if (expires < block.timestamp) revert SignatureExpired(...)`, and `test_RevertWhen_SignatureExpired`, `test_ExpiryBoundaryIsInclusive` and `testFuzz_ExpiryIsEnforced` pin the same boundary deterministically with `vm.warp`.
 
 The gateway suite's `contract.test.ts` is the one worth reading: it compiles `ZegelResolver`,
 deploys it to a local anvil, starts the gateway on a real port, writes that port into the

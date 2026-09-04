@@ -629,30 +629,26 @@ An unconfigured dependency reports `skipped`, never `ok`. The gateway serves
 ## 11. Tests
 
 Re-run on 2026-09-04. Each package installs and tests standalone; run `pnpm install` inside the
-package directory first. These figures are the current measurement and supersede any earlier
-count in this repository — the `gateway` and `solana` suites have grown since the summary table
-in the top-level README was written.
+package directory first.
 
 | Package | Command | Result |
 |---|---|---|
 | `contracts` | `forge test` | **120 passed**, 0 failed, 0 skipped (4 suites) |
 | `cli` | `pnpm test` | **178 passed**, 0 failed (10 files) |
-| `gateway` | `pnpm test` | **115 passed**, 4 skipped — and **1 file fails to load**, see below |
+| `gateway` | `pnpm test` | **118 passed**, 1 skipped (10 files) |
 | `packages/evidence` | `pnpm test` | **98 passed**, 1 skipped (the fixture recorder) |
 | `solana` | `pnpm test` | **89 passed**, 7 skipped (`devnet.integration`, needs a funded devnet keypair) |
 | `packages/seal` | `pnpm test` | **83 passed** with a local Bee node running; 82 passed / 1 skipped without one |
-| **Total passing** | | **683** |
+| `packages/sdk` | `pnpm test` | **16 passed** |
+| **Total passing** | | **702** |
 
 Contract coverage over `contracts/src`: 99.04% lines, 100.00% functions, 94.92% branches.
 
-Two known failures, stated rather than omitted:
+Run them per package. A recursive `pnpm -r test` from the workspace root covers six of the seven
+workspace projects — `app` has no test script, and `cli` and `contracts` are outside the
+workspace — so it reports 404 of the 702 and is not the path to quote.
 
-1. **`gateway/test/vercel.test.ts` fails to load.** It imports `../api/[[...route]].ts`, which
-   was replaced by an esbuild bundle at `api/index.js` during deployment; that bundle is
-   git-ignored. The other nine gateway files pass. Nothing in the deployed gateway depends on
-   this test, and `/health` on the live deployment exercises the same boot path.
-2. **`pnpm test` at the workspace root exits 1.** `@zegel/sdk` declares a `test` script but ships
-   no test files, so the recursive run stops there. Run the per-package commands above instead.
+**A flake that was here and is now fixed.** `gateway/test/contract.test.ts > is rejected on chain once the response has expired` used to derive its expiry from the host clock. anvil's `block.timestamp` only advances when a block is mined, so a chain sitting a second behind wall time did not consider the response expired and the revert did not fire — it failed roughly one run in four. The expiry is now read from the chain's own latest block, and the test passed five consecutive runs. The contract was never at fault: `ZegelResolver` enforces `if (expires < block.timestamp) revert SignatureExpired(...)`, and `test_RevertWhen_SignatureExpired`, `test_ExpiryBoundaryIsInclusive` and `testFuzz_ExpiryIsEnforced` pin the same boundary deterministically with `vm.warp`.
 
 The gateway suite includes a full ERC-3668 round trip against the real `ZegelResolver`: it
 compiles the contract, deploys it to a local anvil, starts the gateway on a real port, writes
