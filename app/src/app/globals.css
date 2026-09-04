@@ -1486,6 +1486,11 @@ textarea.textinput {
 .verdicttext {
   font-size: 13px;
   line-height: 1.65;
+  /* A refusal prints the recomputed hash inline, and a 66-character token has a
+     min-content width of 432px. The verdict row's `1fr` is `minmax(auto, 1fr)`, so it
+     cannot shrink below that and carries the stamp column off the page. `anywhere` is
+     the only value that lowers min-content; `break-word` reads the same and does not. */
+  overflow-wrap: anywhere;
 }
 
 .verdicttext code {
@@ -1506,7 +1511,10 @@ textarea.textinput {
   border: 3px double var(--blue);
   color: var(--blue);
   padding: 12px 10px 13px;
-  margin: 4px 8px 8px 0;
+  /* The rotation pushes the corners past the box's own layout width. */
+  margin: 10px 8px 12px 0;
+  max-width: 100%;
+  box-sizing: border-box;
   text-align: center;
   transform: rotate(-4deg);
   font-family: var(--font-narrow);
@@ -1519,6 +1527,7 @@ textarea.textinput {
   font-size: 25px;
   letter-spacing: 0.1em;
   display: block;
+  white-space: nowrap;
 }
 
 .bigstamp .en {
