@@ -1,6 +1,6 @@
 # Zegel
 
-**Live:** https://zegel-app.vercel.app · **Resolver gateway:** https://zegel-gateway.vercel.app/health
+**Live:** https://zegel-app.vercel.app · **Demo video:** https://youtu.be/Iko5B5-Ato0 · **Resolver gateway:** https://zegel-gateway.vercel.app/health
 
 **A private financial reference.** Prove you are good with money to one specific person, for a limited time, revocably — under an ENS name, without ever revealing the wallet.
 

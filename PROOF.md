@@ -1,5 +1,7 @@
 # PROOF
 
+Demo video: https://youtu.be/Iko5B5-Ato0
+
 Every claim Zegel makes, with a link you can open and a command you can run.
 
 Everything below was re-run against live chains and live hosts on **2026-09-04**. Where a

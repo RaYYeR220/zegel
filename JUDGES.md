@@ -1,5 +1,7 @@
 # Verify this in five minutes
 
+Demo video: https://youtu.be/Iko5B5-Ato0
+
 A booth, a laptop, no preparation. Steps 1–6 need **nothing but `curl` and a browser** — no
 wallet, no API key, no funded account, nothing installed. Steps 7–12 need `pnpm install` and
 nothing else. Part B, at the end, lists the two things that genuinely need more, and says exactly
