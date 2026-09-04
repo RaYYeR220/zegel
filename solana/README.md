@@ -20,6 +20,10 @@ it a **credential** rather than a file we host:
 Program: [`22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG`](https://explorer.solana.com/address/22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG)
 — permissionless, live on mainnet and devnet.
 
+**Deployed on mainnet-beta with one real reference anchored.** Addresses, transaction
+signatures and the one-command negative control a judge can run with no wallet are in
+[Live on Solana mainnet](#live-on-solana-mainnet) below.
+
 ---
 
 ## The model
@@ -160,6 +164,23 @@ that consequence should have to be named.
 
 `verify()` does exactly this and reports `revoked` with the signature, slot and block
 time. `zegel-sas verify --json` prints them.
+
+**The mainnet reference above is deliberately left live**, so the revocation capability
+is shown rather than exercised — it is readable straight off the deployed mint
+[`4q5SUtLBMRZztPTHdHK3QdDCjyPoezUiKpBdTpvvjtFq`](https://explorer.solana.com/address/4q5SUtLBMRZztPTHdHK3QdDCjyPoezUiKpBdTpvvjtFq):
+
+```
+supply            1          (held at the subject's token account, balance 1)
+nonTransferable   present    the subject cannot move it out of the checked address
+permanentDelegate HngMQFF6Yoqj9VqA31r43HQsnuYZ6BxopRWQLQAS6zk   the SAS program PDA
+mintCloseAuthority HngMQFF6Yoqj9VqA31r43HQsnuYZ6BxopRWQLQAS6zk  the SAS program PDA
+tokenGroupMember  group H8LCwFpia1QvwRH3eZsNJg9731nRWPpQ3qbK3rJmKKua, member #1
+```
+
+`PermanentDelegate` lets the program burn that token without the subject signing, and
+`MintCloseAuthority` lets it close the mint afterwards; the credential's
+`authorizedSigners` list contains exactly the issuer authority. Those three facts,
+all readable by anyone, are the revocation capability. Nothing else has to be trusted.
 
 **The close has to be positively identified.** An absent account plus *some* activity
 at the address is not evidence of revocation. Attestation addresses are derivable by
@@ -309,57 +330,99 @@ only file that touches the filesystem, and it has no default path.
 
 ---
 
-## Deployment status
+## Live on Solana mainnet
 
-| Cluster | State |
+The Zegel issuer and one real reference are deployed on **mainnet-beta**. Every address
+below is derived from the issuer pubkey — nothing here is a lookup table.
+
+| | Address |
 |---|---|
-| **devnet** | Read path verified live: the program is deployed and executable, real on-chain SAS accounts decode through this stack, and the derived addresses resolve. The **write** lifecycle has not been run — the issuer authority `BW2UCEkixRcSAAsfUEKe2YZMXLNUMwxZqBpCGBEQ7tD9` holds 0 SOL and the public devnet faucet answers `429 — "You've either reached your airdrop limit today or the airdrop faucet has run dry"` from this network. `faucet.solana.com` requires GitHub sign-in. |
-| **mainnet** | Not deployed. |
+| Issuer authority | [`BW2UCEkixRcSAAsfUEKe2YZMXLNUMwxZqBpCGBEQ7tD9`](https://explorer.solana.com/address/BW2UCEkixRcSAAsfUEKe2YZMXLNUMwxZqBpCGBEQ7tD9) |
+| Credential `"zegel"` | [`E71jA1xf49cCJFVcvDxhqm8eDDF6mcf8VFgoCaWfpSen`](https://explorer.solana.com/address/E71jA1xf49cCJFVcvDxhqm8eDDF6mcf8VFgoCaWfpSen) |
+| Schema `"reference"` v1 | [`GpmsvJCNeKBkuwm25vY9vjzh89ojaqCiNActrZAq1EKC`](https://explorer.solana.com/address/GpmsvJCNeKBkuwm25vY9vjzh89ojaqCiNActrZAq1EKC) |
+| Schema group mint | [`H8LCwFpia1QvwRH3eZsNJg9731nRWPpQ3qbK3rJmKKua`](https://explorer.solana.com/address/H8LCwFpia1QvwRH3eZsNJg9731nRWPpQ3qbK3rJmKKua) |
+| Attestation | [`36A3Fyeid2fauHVs1atAvc8YFvt7tvDSMqofZaeYYQbM`](https://explorer.solana.com/address/36A3Fyeid2fauHVs1atAvc8YFvt7tvDSMqofZaeYYQbM) |
+| Attestation NFT mint | [`4q5SUtLBMRZztPTHdHK3QdDCjyPoezUiKpBdTpvvjtFq`](https://explorer.solana.com/address/4q5SUtLBMRZztPTHdHK3QdDCjyPoezUiKpBdTpvvjtFq) |
+| Subject's token account | [`EmZ7C7a8KY1DqGvqH9yEAsCbrioQAXpB6zdTtwKvcSLG`](https://explorer.solana.com/address/EmZ7C7a8KY1DqGvqH9yEAsCbrioQAXpB6zdTtwKvcSLG) |
 
-To unblock devnet, the authority needs roughly **0.02 SOL** — enough for setup plus one
-full issue → verify → revoke cycle, with slack. Then:
+| Transaction | Signature |
+|---|---|
+| Issuer setup (credential + schema + tokenize) | [`9BnwfoeVQJx6UkXUcoXwb3VHJCtL5VzFr7TrmA2K3uy94cEyGjit7cct5sgFpwFyJZ55VRRSPAPiYTNkDx1Fq6F`](https://explorer.solana.com/tx/9BnwfoeVQJx6UkXUcoXwb3VHJCtL5VzFr7TrmA2K3uy94cEyGjit7cct5sgFpwFyJZ55VRRSPAPiYTNkDx1Fq6F) |
+| Issue the reference | [`35DCZai3bBRZpg24AhpSDFifH4f14b5vvnEZGzu7Y1WuBWbT8Bop36hHc5jZfwc3NqzmcgcZcjm6vNRDoLCN3LEm`](https://explorer.solana.com/tx/35DCZai3bBRZpg24AhpSDFifH4f14b5vvnEZGzu7Y1WuBWbT8Bop36hHc5jZfwc3NqzmcgcZcjm6vNRDoLCN3LEm) |
 
-```bash
-ZEGEL_SOLANA_KEYPAIR=/path/to/issuer.json pnpm test
+The anchored reference:
+
+```
+referenceId    0xa5a4d829143280bd2ad24c33c9f94da4e37cf6d5d29ba1acef4c9b2a96f51a9f
+commitment     0xce99fc040a03fb82d617b61fce60933590049b003b7b5b989f7c3681f1b3fca5
+derivationId   0xcd0528ad537c9547d4c9c687165e65a67df2a7582635f4b8f236acb2405415fa
+expiresAt      1796291436  (2026-12-03T09:50:36Z)
+tierCount      2
 ```
 
-runs the whole lifecycle and prints the signatures.
+This is the same reference `zegel.eth` serves under ENSIP-24 on Ethereum mainnet and
+`ZegelAnchor` reports valid for on Base
+([`0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e`](https://basescan.org/address/0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e)).
+Three anchors, one commitment — and this is the revocable one.
 
-### Mainnet funding
+### Reproduce the negative control against mainnet, no wallet
 
-| | SOL |
-|---|---:|
-| Issuer setup (credential + schema + group mint), one time | 0.005946687 |
-| One reference (attestation + NFT mint + subject ATA) | 0.010500114 |
-| Transaction fees, 3 signatures | 0.000015 |
-| **Minimum for one end-to-end cycle** | **0.016461801** |
-| Recommended, covering ~4 references and priority fees | **0.05** |
+One command, no keypair, no credentials, ~2 seconds:
 
-Revoking refunds the attestation and mint rent, so the marginal cost of a reference
-that is later revoked is close to the ATA rent plus fees.
+```bash
+cd solana && pnpm install && node src/cli/index.js verify \
+  --cluster mainnet-beta \
+  --issuer  BW2UCEkixRcSAAsfUEKe2YZMXLNUMwxZqBpCGBEQ7tD9 \
+  --subject BW2UCEkixRcSAAsfUEKe2YZMXLNUMwxZqBpCGBEQ7tD9 \
+  --reference-id 0xa5a4d829143280bd2ad24c33c9f94da4e37cf6d5d29ba1acef4c9b2a96f51a9f \
+  --commitment   0xce99fc040a03fb82d617b61fce60933590049b003b7b5b989f7c3681f1b3fca5
+```
+
+`status VALID`, exit `0`. Change the final `5` of `--commitment` to a `4` and rerun:
+`status COMMITMENT-MISMATCH`, exit `2`, with both hashes printed. That is the whole
+tamper-evidence claim, checkable by a stranger against the live chain.
 
 ---
 
-## Costs
+## Costs, as actually spent on mainnet
 
-Measured against live rent parameters (identical on devnet and mainnet), not estimated:
+Rent is queried live from `getMinimumBalanceForRentExemption`; the sizes below are the
+allocations the program really made, read back from the deployed accounts.
 
 | Account | Bytes | Rent-exempt |
 |---|---:|---:|
 | Credential | 78 | 0.001304598 SOL |
 | Schema | 243 | 0.002349543 SOL |
-| Schema group mint | 234 | 0.002292546 SOL |
-| **Issuer setup, one time** | | **0.005946687 SOL** |
+| Schema group mint | 318 | 0.002824518 SOL |
+| **Issuer setup, one time** | | **0.006478659 SOL** |
 | Attestation | 290 | 0.002647194 SOL |
 | Attestation NFT mint | 802 | 0.005889690 SOL |
-| Subject's token account | 182 | 0.001963230 SOL |
-| **Per reference** | | **0.010500114 SOL** |
+| Subject's token account | 174 | 0.001912566 SOL |
+| **Per reference** | | **0.010449450 SOL** |
 
-Plus 0.000005 SOL per transaction (setup, issue, revoke — one signature each).
+Actual spend for setup plus one reference: **0.016954109 SOL** — 0.016928109 rent plus
+0.000026 in fees (2 signatures at 5,000 lamports, plus a 20,000 µlamports/CU priority
+fee on both transactions).
 
-Revoking refunds the attestation and mint rent to the payer. The one-time setup rent
-is recoverable only by tearing down the credential. These are queried live from
-`getMinimumBalanceForRentExemption`; devnet and mainnet share rent parameters.
+> One prediction was off and is worth recording: the schema group mint allocates **318
+> bytes, not the 234** that `getMintSize([GroupPointer])` returns. `tokenizeSchema` also
+> writes a `TokenGroup` extension (+84 bytes) that the client-side size helper does not
+> account for. The program allocates it regardless of the `maxSize` argument, so this
+> costs 0.00053 SOL more per issuer than a naive estimate — once, not per reference.
+
+Revoking is close to free and refunds more than it costs: closing the attestation and
+its mint returns **0.008536884 SOL** to the payer against a fee of 0.000005–0.000009
+SOL. The subject's token account is not reclaimed by that instruction. The one-time
+setup rent is recoverable only by tearing down the credential.
+
+### Devnet
+
+Not deployed. The public devnet faucet answers
+`429 — "You've either reached your airdrop limit today or the airdrop faucet has run dry"`
+from this network and `faucet.solana.com` requires GitHub sign-in, so the write
+lifecycle went straight to mainnet. The devnet **read** path is still exercised on
+every test run (`test/devnet.read.test.ts`): the program is deployed and executable
+there, and real on-chain SAS accounts decode through this stack.
 
 ---
 
@@ -380,13 +443,20 @@ Five suites run with no credentials of any kind:
 | `test/verify.test.ts` | The full status matrix and its precedence, both revocation paths (including one reached through a CPI), the refusal to read unexplained address activity as a revocation, and the tampered-commitment negative control. |
 | `test/lifecycle.test.ts` | The refusals — duplicate issue, uninitialised issuer, drifted schema, closing a live or never-expiring reference, a stale reference id — and setup idempotency. |
 
-`test/devnet.read.test.ts` additionally hits the **live cluster** — no key, no funds —
-to confirm the program is deployed, that real on-chain SAS accounts decode through the
-pinned stack, and that the hard-coded discriminators are the ones the program writes.
-It skips itself if devnet is unreachable.
+Two more hit the **live chain** with no key and no funds, and skip themselves if it is
+unreachable:
 
-The devnet write lifecycle skips itself unless an issuer keypair is present **and**
-funded, and prints the reason it skipped:
+| Suite | What it holds down |
+|---|---|
+| `test/mainnet.read.test.ts` | The deployed reference itself: the published addresses re-derive from the issuer pubkey, the anchored commitment is the one the other two chains anchor, a one-digit change still fails as `commitment-mismatch`, the soulbound token is still held, and the mint still carries the three extensions revocation depends on. |
+| `test/devnet.read.test.ts` | The program is deployed and executable, real on-chain SAS accounts decode through the pinned stack, and the hard-coded discriminators are the ones the program writes. |
+
+The mainnet suite is what keeps this README honest: if the reference is ever revoked,
+re-issued under a different commitment, or the schema drifts, `pnpm test` goes red
+rather than the claims above quietly becoming untrue.
+
+The write lifecycle skips itself unless an issuer keypair is present **and** funded,
+and prints the reason it skipped:
 
 ```bash
 ZEGEL_SOLANA_KEYPAIR=/path/to/issuer.json \
@@ -394,10 +464,14 @@ ZEGEL_SOLANA_RPC=https://api.devnet.solana.com \
 pnpm test
 ```
 
-It runs the full lifecycle against a freshly generated subject each time — setup →
+It runs the full lifecycle against a **freshly generated subject** each time — setup →
 issue → verify `valid` → verify a tampered commitment → refuse a duplicate issue →
 refuse an early `close` → revoke → verify `revoked` → verify an unknown subject
 `not-found` — and prints the transaction signatures it produced.
+
+The fresh subject is what makes it safe to point at any cluster: it derives a different
+attestation PDA every run, so it can never touch the reference anchored above. It does
+need about **0.011 SOL** of headroom to issue, most of which comes back on the revoke.
 
 ---
 

@@ -1,5 +1,7 @@
 # Zegel
 
+**Live:** https://zegel-app.vercel.app · **Resolver gateway:** https://zegel-gateway.vercel.app/health
+
 **A private financial reference.** Prove you are good with money to one specific person, for a limited time, revocably — under an ENS name, without ever revealing the wallet.
 
 ---
@@ -54,6 +56,7 @@ So Zegel's gateway is deliberately a dumb pipe. It serves only the public envelo
 |---|---|
 | **`zegel.eth`** | Ethereum mainnet — [registration tx](https://etherscan.io/tx/0xef1d1d55928b1125f72e6c6540870ae62dc38b3a7fa7b69f61b6dff7828ce164) · node `0xb6a03b9b…81598` |
 | **`ZegelAnchor`** | Base mainnet [`0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e`](https://basescan.org/address/0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e) · [deploy tx](https://basescan.org/tx/0x7c32343d11f3c74dd4d22f48ad15172d80396aabc9e8808666fa3803a2f5d87d) |
+| **Solana attestation** | mainnet [`36A3Fyeid2fauHVs1atAvc8YFvt7tvDSMqofZaeYYQbM`](https://solscan.io/account/36A3Fyeid2fauHVs1atAvc8YFvt7tvDSMqofZaeYYQbM) — soulbound, issued in [this tx](https://solscan.io/tx/35DCZai3bBRZpg24AhpSDFifH4f14b5vvnEZGzu7Y1WuBWbT8Bop36hHc5jZfwc3NqzmcgcZcjm6vNRDoLCN3LEm) |
 | **Swarm postage batch** | Gnosis mainnet — [purchase tx](https://gnosisscan.io/tx/0x929fd732a307c5fdd0f0c9a4df6484eff4c8f19e45c05df730b248f64cce5823) · batch `a3da0bac…44c3` |
 
 See [`PROOF.md`](./PROOF.md) for the full evidence chain, including the live grant-read-revoke transcript.

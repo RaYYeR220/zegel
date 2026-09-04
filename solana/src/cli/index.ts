@@ -37,6 +37,8 @@ Common flags
   --issuer <pubkey>          issuer authority for read-only commands
                                                    [env ZEGEL_SOLANA_ISSUER]
   --json                     machine-readable output
+  --priority-fee <n>         micro-lamports per compute unit on the write commands
+                             (default 0)
 
 issue / verify / revoke / close flags
   --subject <pubkey>         the subject's Solana pubkey (the attestation nonce)
@@ -246,7 +248,14 @@ function mark(live: boolean): string {
 async function openIssuer(flags: Flags, rpcUrl: string) {
   const keypairPath = required(flags, 'keypair', 'ZEGEL_SOLANA_KEYPAIR');
   const keypair = await loadKeypairFile(keypairPath);
-  return createIssuer({ rpcUrl, keypair });
+  const priorityFee = str(flags, 'priority-fee');
+  return createIssuer({
+    rpcUrl,
+    keypair,
+    // Zero unless asked for: a mainnet cost should be the operator's explicit choice,
+    // not something the tool quietly spends on their behalf.
+    ...(priorityFee ? { sendOptions: { computeUnitPriceMicroLamports: Number(priorityFee) } } : {}),
+  });
 }
 
 /** Read-only commands take the issuer pubkey directly, or derive it from a keypair if one is around. */

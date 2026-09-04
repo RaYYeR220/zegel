@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Zegel — a private financial reference, issued as a machine-readable travel document.",
+  "description": "Zegel \u2014 a private financial reference, issued as a machine-readable travel document.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -17,7 +17,10 @@
     "react-dom": "19.2.0",
     "server-only": "^0.0.1",
     "viem": "2.56.3",
-    "wagmi": "3.7.7"
+    "wagmi": "3.7.7",
+    "@noble/hashes": "^1.8.0",
+    "@ethersphere/bee-js": "13.0.0",
+    "@noble/curves": "^1.8.1"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

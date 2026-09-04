@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { NextConfig } from 'next';
 
 /**
@@ -20,6 +22,13 @@ const nextConfig: NextConfig = {
       ...(config.resolve.extensionAlias ?? {}),
       '.js': ['.ts', '.tsx', '.js'],
     };
+    // Sources compiled from outside this directory resolve bare imports relative to
+    // their own location, which on a deploy that installs only this package means
+    // they resolve to nothing. Point the last resort back here.
+    config.resolve.modules = [
+      ...(config.resolve.modules ?? ['node_modules']),
+      path.resolve(process.cwd(), 'node_modules'),
+    ];
     return config;
   },
 };
