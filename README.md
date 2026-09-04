@@ -54,7 +54,7 @@ So Zegel's gateway is deliberately a dumb pipe. It serves only the public envelo
 
 | What | Where |
 |---|---|
-| **`zegel.eth`** | Ethereum mainnet — [registration tx](https://etherscan.io/tx/0xef1d1d55928b1125f72e6c6540870ae62dc38b3a7fa7b69f61b6dff7828ce164) · node `0xb6a03b9b…81598` |
+| **`zegel.eth`** | Ethereum mainnet — [registration tx](https://etherscan.io/tx/0xef1d1d55928b1125f72e6c6540870ae62dc38b3a7fa7b69f61b6dff7828ce164) · node `0x16a79596…d7e7` |
 | **`ZegelAnchor`** | Base mainnet [`0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e`](https://basescan.org/address/0xbcB85eCdeF23a11D5015b260cC4eDCc0c250f42e) · [deploy tx](https://basescan.org/tx/0x7c32343d11f3c74dd4d22f48ad15172d80396aabc9e8808666fa3803a2f5d87d) |
 | **Solana attestation** | mainnet [`36A3Fyeid2fauHVs1atAvc8YFvt7tvDSMqofZaeYYQbM`](https://solscan.io/account/36A3Fyeid2fauHVs1atAvc8YFvt7tvDSMqofZaeYYQbM) — soulbound, issued in [this tx](https://solscan.io/tx/35DCZai3bBRZpg24AhpSDFifH4f14b5vvnEZGzu7Y1WuBWbT8Bop36hHc5jZfwc3NqzmcgcZcjm6vNRDoLCN3LEm) |
 | **Swarm postage batch** | Gnosis mainnet — [purchase tx](https://gnosisscan.io/tx/0x929fd732a307c5fdd0f0c9a4df6484eff4c8f19e45c05df730b248f64cce5823) · batch `a3da0bac…44c3` |
@@ -79,17 +79,26 @@ See [`PROOF.md`](./PROOF.md) for the full evidence chain, including the live gra
 | Package | Passing |
 |---|---|
 | `contracts` | **120** — 99.04% lines, 100% functions, 94.92% branches |
-| `gateway` | **86** — including a full ERC-3668 round trip against the real resolver on anvil, driven by viem |
+| `cli` | **178** |
+| `gateway` | **118** — including a full ERC-3668 round trip against the real resolver on anvil, driven by viem |
 | `packages/evidence` | **98** |
-| `solana` | **84** |
-| `packages/seal` | **82** |
-| **Total** | **470** |
+| `solana` | **89** |
+| `packages/seal` | **83** |
+| `packages/sdk` | **16** |
+| **Total** | **702** |
 
 ```bash
 pnpm install
-pnpm test                       # every package
-cd contracts && forge test      # contracts
+cd contracts && forge test              # 120
+cd cli       && pnpm test               # 178
+cd gateway   && pnpm test               # 118
+cd packages/evidence && pnpm test       # 98
+cd solana    && pnpm test               # 89
+cd packages/seal && pnpm test           # 83
+cd packages/sdk  && pnpm test           # 16
 ```
+
+Run them per package. A recursive run from the root is not the supported path — see [`CLAIMS.md`](./CLAIMS.md).
 
 ## Honest limits
 
