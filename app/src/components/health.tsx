@@ -48,6 +48,8 @@ const LABEL: Record<string, string> = {
   'bee-reader': 'Bee reader',
   'rpc-ethereum': 'Ethereum',
   'rpc-base': 'Base',
+  'anchor-base': 'ZegelAnchor',
+  'mobula-flaky': 'Mobula flaky routes',
 };
 
 const CLASS: Record<ProbeRow['status'], string> = {
@@ -111,7 +113,10 @@ function CreditReadout({ meter }: { meter: CreditMeter | null }): ReactNode {
 
   const remaining = meter.latest?.remaining ?? null;
   const limit = meter.latest?.limit ?? null;
-  const share = remaining !== null && limit !== null && limit > 0 ? remaining / limit : null;
+  // The keyless demo host reports a static allowance, so a bar pinned at 100%
+  // would be decoration. It appears once the headroom actually moves.
+  const share =
+    remaining !== null && limit !== null && limit > 0 && remaining < limit ? remaining / limit : null;
 
   return (
     <span

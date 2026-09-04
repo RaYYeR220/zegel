@@ -534,6 +534,10 @@ function Visa({
           )}
         </div>
       </div>
+      <div className="entrystamp" aria-hidden="true">
+        <b>{tier}</b>
+        <small>niveau</small>
+      </div>
       {state === 'withdrawn' && (
         <div className="cancelstamp" style={fresh === true ? undefined : { animation: 'none' }}>
           Ingetrokken

@@ -222,10 +222,21 @@ function explain(
 ): string {
   switch (verdict) {
     case 'tampered':
-      return context.commitment?.matches === false
-        ? `The claim set in front of you hashes to ${context.commitment.recomputed}. The envelope, and the anchor on Base, ` +
-            `commit to ${context.commitment.expected}. Nobody recognised the forgery — the sum simply does not come out.`
-        : 'Re-deriving the claims from the raw upstream bodies does not reproduce what was declared. The numbers disagree with their own evidence.';
+      if (context.commitment?.matches === false) {
+        return (
+          `The claim set in front of you hashes to ${context.commitment.recomputed}. The envelope, and the anchor on Base, ` +
+          `commit to ${context.commitment.expected}. Nobody recognised the forgery — the sum simply does not come out.`
+        );
+      }
+      if (context.rederivation !== null && !context.rederivation.claimsAgree) {
+        return 'Re-deriving the claims from the raw upstream bodies does not reproduce what was declared. The numbers disagree with their own evidence.';
+      }
+      return (
+        'Every claim still re-derives to exactly the value it declares. What fails is one step earlier: ' +
+        `${context.rederivation?.mismatches.length ?? 0} of the recorded upstream responses no longer hash to the digest ` +
+        'recorded beside them, so the evidence in this bundle is not the evidence that was measured. A reader who cannot ' +
+        'confirm the inputs has no business trusting the outputs, however well they add up.'
+      );
     case 'revoked':
       return `${context.anchor?.summary ?? ''} Revocation is observable on chain without decrypting anything, which is the point: a reader can be cut off without being told what they were cut off from.`;
     case 'expired':
@@ -316,5 +327,11 @@ function rederive(bundle: EvidenceBundle): NonNullable<VerifyResult['rederivatio
     };
   });
 
-  return { ran: true, ok: result.ok, mismatches: result.mismatches, comparisons };
+  return {
+    ran: true,
+    ok: result.ok,
+    claimsAgree: comparisons.every((comparison) => comparison.agrees),
+    mismatches: result.mismatches,
+    comparisons,
+  };
 }

@@ -11,9 +11,10 @@ import { ANCHOR_WRITE_ABI } from '~/lib/anchorAbi';
 import { ANCHOR_ADDRESS, DEFAULT_EXPIRY_DAYS, EXPLORERS } from '~/lib/config';
 import { byUnit, shortHex, stampDate, thresholdText } from '~/lib/format';
 import { buildMrz, documentNumber } from '~/lib/mrz';
+import { ProgressLog, type LogLine } from '~/components/progress';
 import { readNdjson } from '~/lib/ndjson';
 import { useReferences } from '~/lib/store';
-import type { CreditMeter, IssueResult, ReferenceRecord, SealOutcome } from '~/lib/types';
+import type { CreditMeter, ReferenceRecord, SealOutcome } from '~/lib/types';
 import type { Claim, ClaimSet, SealedEnvelope } from '@zegel/sdk/types';
 
 type Phase = 'idle' | 'signing' | 'collecting' | 'sealing' | 'done' | 'refused';
@@ -44,7 +45,7 @@ export function Issue(): ReactNode {
   const { save } = useReferences();
 
   const [phase, setPhase] = useState<Phase>('idle');
-  const [log, setLog] = useState<{ text: string; bad: boolean }[]>([]);
+  const [log, setLog] = useState<LogLine[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<{ message: string; detail?: string } | null>(null);
 
@@ -397,21 +398,7 @@ export function Issue(): ReactNode {
         </span>
       </div>
 
-      {progress !== null && busy && (
-        <div className="progressbar" aria-hidden="true">
-          <i style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} />
-        </div>
-      )}
-
-      {log.length > 0 && (
-        <div className="progresslog" role="log" aria-live="polite">
-          {log.map((entry, index) => (
-            <div key={`${index}-${entry.text}`} className={entry.bad ? 'bad' : ''}>
-              {entry.text}
-            </div>
-          ))}
-        </div>
-      )}
+      <ProgressLog lines={log} running={busy} progress={progress} />
 
       {error !== null && (
         <Notice tone="warn" title="Geweigerd / refused">
@@ -718,8 +705,14 @@ function AnchorControl({
       <SectionHead nl="Vastlegging op Base" en="Anchor on Base" />
       <p className="prose">
         Anchoring writes the commitment and the expiry to <code className="mono">{ANCHOR_ADDRESS}</code> on Base
-        mainnet. It is what lets a reader see a revocation without decrypting anything and without asking us.
-        Anchoring is permissionless and has no owner: a reference id belongs to whoever claims it first.
+        mainnet. It is permissionless and has no owner: a reference id belongs to whoever claims it first.
+      </p>
+      <p className="prose">
+        It is also the step that makes the reference checkable at all. The envelope is public and
+        unauthenticated — anyone can publish one, over any claims they like — so what binds this reference id
+        to this commitment, and to the wallet that issued it, is the anchor and nothing else. Skip it and the
+        inspection desk on page 09 answers <em>geen record</em>, because there would be nothing to hold the
+        claims against. It is also where a revocation becomes visible without decrypting anything.
       </p>
       <div className="act">
         <button className="btn" type="button" onClick={() => void anchor()} disabled={!isConnected || isPending}>
@@ -731,8 +724,7 @@ function AnchorControl({
           </a>
         )}
         <span className="hint">
-          Costs a few thousandths of a cent at current Base gas. Skip it and the reference still works — it
-          just has no public place to be revoked from.
+          A few thousandths of a cent at current Base gas, and the only transaction this product ever asks for.
         </span>
       </div>
       {failure !== null && (

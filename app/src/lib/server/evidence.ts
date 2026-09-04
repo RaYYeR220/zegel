@@ -24,9 +24,12 @@ export { analyseExposure };
 export function mobula(): MobulaClient {
   return createMobulaClient({
     ...(MOBULA_API_KEY === undefined ? {} : { apiKey: MOBULA_API_KEY }),
-    // Two attempts, not five: a serverless function has a wall-clock budget, and
-    // an endpoint that needs a third retry is better reported unavailable.
-    retry: { maxAttempts: 2, timeoutMs: 9_000 },
+    // Three attempts, not five: a serverless function has a wall-clock budget,
+    // and an endpoint that needs a fourth try is better reported unavailable. The
+    // third is worth paying for because the demo host answers 429 under its own
+    // rate limit, a 429 costs no credits, and the route that hits it most is
+    // `/2/token/security` — the one carrying the risk-quality claim.
+    retry: { maxAttempts: 3, timeoutMs: 9_000 },
   });
 }
 

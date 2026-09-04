@@ -6,6 +6,7 @@ import { Field, FieldGrid, Footrule, Notice, SectionHead } from '~/components/do
 import { useCreditMeter } from '~/components/health';
 import { WORKED_EXAMPLE_NAME } from '~/lib/config';
 import { count, days, ratio, shortHex, stampDate, usd, utcOffset } from '~/lib/format';
+import { ProgressLog, type LogLine } from '~/components/progress';
 import { readNdjson } from '~/lib/ndjson';
 import type { CollectProgressEvent, ExposureResult } from '~/lib/types';
 
@@ -19,7 +20,7 @@ import type { CollectProgressEvent, ExposureResult } from '~/lib/types';
 export function Exposure(): ReactNode {
   const [input, setInput] = useState(WORKED_EXAMPLE_NAME);
   const [result, setResult] = useState<ExposureResult | null>(null);
-  const [log, setLog] = useState<{ text: string; bad: boolean }[]>([]);
+  const [log, setLog] = useState<LogLine[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<{ message: string; hint: string | null } | null>(null);
@@ -150,21 +151,7 @@ export function Exposure(): ReactNode {
         </span>
       </form>
 
-      {progress !== null && running && (
-        <div className="progressbar" aria-hidden="true">
-          <i style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} />
-        </div>
-      )}
-
-      {log.length > 0 && (
-        <div className="progresslog" role="log" aria-live="polite">
-          {log.map((line, index) => (
-            <div key={`${index}-${line.text}`} className={line.bad ? 'bad' : ''}>
-              {line.text}
-            </div>
-          ))}
-        </div>
-      )}
+      <ProgressLog lines={log} running={running} progress={progress} />
 
       {error !== null && (
         <Notice tone="warn" title="Niets uitgelezen / nothing read">

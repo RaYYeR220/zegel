@@ -229,6 +229,7 @@ function Inspection({ result }: { result: VerifyResult }): ReactNode {
   return (
     <>
       {ladder.length > 0 && (
+        <div className="tablewrap">
         <table className="ladder">
           <thead>
             <tr>
@@ -265,15 +266,16 @@ function Inspection({ result }: { result: VerifyResult }): ReactNode {
                 <td>
                   Inzage niveau {read.tier} <span style={{ opacity: 0.6 }}>/ tier {read.tier} read</span>
                 </td>
-                <td className="mono">{read.outcome.via}</td>
-                <td className="r">—</td>
-                <td className="r">
-                  {read.outcome.granted ? `${read.outcome.bytes} B` : read.outcome.message.slice(0, 28)}
+                <td className="mono">
+                  {read.outcome.granted ? (read.outcome.schema ?? 'opened') : read.outcome.message}
                 </td>
+                <td className="r">—</td>
+                <td className="r">{read.outcome.granted ? `${read.outcome.bytes} B` : 'geen'}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <div className="derivebox">
@@ -288,12 +290,14 @@ function Inspection({ result }: { result: VerifyResult }): ReactNode {
 
           {result.commitment !== null && (
             <>
+              {/* Declared is what the envelope and the anchor commit to; re-derived is
+                  what the claims actually in front of the desk hash to. */}
               <span className="lbl">Verzegeling van de aangeboden uitspraken</span>
               <span className={result.commitment.matches ? 'num' : 'num off'}>
-                {shortHex(result.commitment.recomputed, 10, 6)}
+                {shortHex(result.commitment.expected, 10, 6)}
               </span>
               <span className={result.commitment.matches ? 'num' : 'num off'}>
-                {shortHex(result.commitment.expected, 10, 6)}
+                {shortHex(result.commitment.recomputed, 10, 6)}
               </span>
             </>
           )}
@@ -380,12 +384,33 @@ function Inspection({ result }: { result: VerifyResult }): ReactNode {
         </div>
       </div>
 
-      {result.verdict === 'tampered' && (
+      {result.verdict === 'tampered' && result.commitment?.matches === false && (
         <Notice tone="warn" title="De negatieve controle">
           Every check digit closes. A forger gets the 7-3-1 weights right without effort — they only prove the
           line was printed neatly. What fails is arithmetic nobody can talk their way around: the claim set in
           front of the desk does not hash to the number the issuer sealed, and the contract on Base says so
           without being asked to take anyone&apos;s word for it.
+        </Notice>
+      )}
+
+      {result.verdict === 'tampered' &&
+        result.commitment?.matches !== false &&
+        result.rederivation?.claimsAgree === true && (
+          <Notice tone="warn" title="Bewijs, niet uitkomst / the evidence, not the answer">
+            This is the subtler failure and it is worth watching. Every claim re-derives to exactly the value it
+            declares, and the commitment matches what was sealed. What does not hold is the layer underneath:
+            some of the recorded upstream responses no longer hash to the digests recorded beside them. The sum
+            is right; the working has been changed. A tier-2 reader exists precisely so that this is visible
+            rather than taken on trust.
+          </Notice>
+        )}
+
+      {result.verdict === 'not-found' && result.envelope !== null && (
+        <Notice tone="warn" title="Niets om het tegenaan te houden">
+          The envelope is public and unauthenticated: anyone can publish one, over any claims they like. What
+          binds a reference id to a commitment, and to the wallet that issued it, is the anchor on Base — and
+          this id has never been anchored. The claims may well be true. Nothing here can tell you that, and
+          saying otherwise would be the one thing this desk must never do.
         </Notice>
       )}
 

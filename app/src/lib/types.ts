@@ -44,26 +44,6 @@ export interface ExposureResult {
   collectedAt: string;
 }
 
-/** Everything the issue page needs after a successful derivation and seal. */
-export interface IssueResult {
-  subject: Subject;
-  referenceId: string;
-  commitment: string;
-  derivationId: string;
-  window: { from: string; to: string };
-  claims: readonly Claim[];
-  claimSet: ClaimSet;
-  /** Claim ids the derivation could not compute, with the reason. */
-  missing: readonly { id: string; statement: string; reason: string }[];
-  negativeControl: { ok: boolean; mismatches: readonly string[] };
-  envelope: SealedEnvelope;
-  /** Sealing coordinates the browser keeps so the server can stay stateless. */
-  record: ReferenceRecord | null;
-  seal: SealOutcome;
-  credits: CreditMeter;
-  controlProof: { signer: string; message: string };
-}
-
 export interface SealOutcome {
   attempted: boolean;
   backend: {
@@ -199,6 +179,16 @@ export interface VerifyResult {
   rederivation: {
     ran: boolean;
     ok: boolean;
+    /**
+     * Whether every claim re-derived to the same value.
+     *
+     * Kept apart from `ok` because the two failures mean different things to a
+     * reader: a claim that disagrees with its own evidence is a false statement,
+     * while a source whose body no longer hashes to its recorded digest is
+     * evidence that changed after it was recorded. Both are refusals; collapsing
+     * them into one would make the desk say the wrong thing.
+     */
+    claimsAgree: boolean;
     mismatches: readonly string[];
     comparisons: readonly { id: string; statement: string; declared: string; rederived: string; agrees: boolean }[];
   } | null;
